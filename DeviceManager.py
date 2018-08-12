@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#qpy:kivy
 
 import os,sys,struct,json
 from locale import getdefaultlocale
@@ -24,11 +25,23 @@ try:
 	GUI_TK=True
 except:
 	GUI_TK=False
+
+try:
+	from kivy.uix.floatlayout import FloatLayout
+	from kivy.adapters.listadapter import ListAdapter
+	from kivy.uix.listview import ListItemLabel,ListItemButton,CompositeListItem
+	from kivy.metrics import dp
+	from kivy.app import App
+	from kivy.lang import Builder
+	GUI_Kivy = True
+except:
+	GUI_Kivy = False
 	class App:
 		pass
 
 devices = {}
 log = "search.log"
+icon = "R0lGODlhIAAgAPcAAAAAAAkFAgwKBwQBABQNBRAQDQQFERAOFA4QFBcWFSAaFCYgGAoUMhwiMSUlJCsrKyooJy8wLjUxLjkzKTY1Mzw7OzY3OEpFPwsaSRsuTRUsWD4+QCo8XQAOch0nYB05biItaj9ARjdHYiRMfEREQ0hIR0xMTEdKSVNOQ0xQT0NEUVFNUkhRXlVVVFdYWFxdXFtZVV9wXGZjXUtbb19fYFRda19gYFZhbF5wfWRkZGVna2xsa2hmaHFtamV0Ynp2aHNzc3x8fHh3coF9dYJ+eH2Fe3K1YoGBfgIgigwrmypajDtXhw9FpxFFpSdVpzlqvFNzj0FvnV9zkENnpUh8sgdcxh1Q2jt3zThi0SJy0Dl81Rhu/g50/xp9/x90/zB35TJv8DJ+/EZqzj2DvlGDrlqEuHqLpHeQp26SuhqN+yiC6imH/zSM/yqa/zeV/zik/1aIwlmP0mmayWSY122h3VWb6kyL/1yP8UGU/UiW/VWd/miW+Eqp/12k/1Co/1yq/2Gs/2qr/WKh/nGv/3er9mK3/3K0/3e4+4ODg4uLi4mHiY+Qj5WTjo+PkJSUlJycnKGem6ShnY2ZrKOjo6urrKqqpLi0prS0tLu8vMO+tb+/wJrE+bzf/sTExMfIx8zMzMjIxtrWyM/Q0NXU1NfY193d3djY1uDf4Mnj+931/OTk5Ozs7O/v8PLy8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAEAAAAALAAAAAAgACAAAAj+AAEIHEiwoMGDCBMqXMiwocOHECNKnEixosWLGDNq3Mgx4iVMnTyJInVKlclSpD550nRpUqKGmD59EjWqlMlVOFWdIgWq0iNNoBIhSujokidPn0aNKrmqVStWqjxRumTqyI5KOxI5OpiIkiakNG2yelqK5alKLSAJgbBBB6RIjArmCKLIkV1HjyZNpTTJFKgSQoI4cGBiBxBIR6QM6TGQxooWL3LwMBwkSJEcLUq8YATDAZAdMkKh+GGpAo0cL1wInJuokSNIeqdeCgLBAoVMR2CEMkHDzAcnTCzsCAKERwsXK3wYKYLIdd6pjh4guCGJw5IpT7R8CeNlCwsikx7+JTJ+PAZlRHXxOgqBAQMTLXj0AAKkJw+eJw6CXGqJyAWNyT8QgZ5rsD2igwYEOOEGH38EEoghgcQhQgJAxISJI/8ZNoQUijiX1yM7NIBAFm3wUcghh9yBhQcCFEBDJ6V8MskKhgERxBGMMILXI7AhsoAAGSgRBRlliLHHHlZgMAAJmLByCiUnfGajFEcgotVzjkhggAYjjBHFFISgkoodSDAwAyStqDIJAELs4CYQQxChVSRTQcJCFWmUyAcghmzCCRgdXCEHEU69VJiNdDmnV0s4rNHFGmzgkUcfhgiShAd0nNHDVAc9YIEFFWxAQgkVpKAGF1yw4UYdc6AhhQohJFiwQAIRPQCHFlRAccMJFCRAgAAVJXDBBAsQEEBHDwUEADs="
 help = """
 	Usage: %s [-q] [-n] [Command];[Command];...
 	-q				No output
@@ -138,6 +151,8 @@ CODES = {
 	608:_("Configuration parsing error"),
 }
 def tolog(s):
+	print(s)
+	if logLevel >= 20:
 		logfile = open(log, "a+")
 		logfile.write(s)
 		logfile.close()
@@ -220,7 +235,7 @@ def SearchFros(devices):
 	server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
 	server.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
 	server.settimeout(1)
-	server.sendto(b"MO_I\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x01", ("255.255.255.255", 10000))
+	server.sendto(b'MO_I\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x01', ("255.255.255.255", 10000))
 	while True:
 		try:
 			data = server.recvfrom(1024)
@@ -291,8 +306,8 @@ def ConfigXM(data):
 	server.settimeout(1)
 	server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
 	server.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-	#(255, version=0, type=254, 0, 0, info=0, msg=1532, len)
-	server.sendto(struct.pack('BBHIIHHI',255,0,254,0,0,0,1532,len(config)+2)+config+'\x0a\x00',('255.255.255.255', 34569))
+	clen = len(config)
+	server.sendto(struct.pack('BBHIIHHI%ds2s'%clen,255,0,254,0,0,0,1532,clen+2,config,b'\x0a\x00'),('255.255.255.255', 34569))
 	answer = {"Ret":203}
 	e=0
 	while True:
@@ -300,7 +315,7 @@ def ConfigXM(data):
 			data = server.recvfrom(1024)
 			head,ver,typ,session,packet,info,msg,leng = struct.unpack('BBHIIHHI',data[0][:20])
 			if (msg == 1533) and leng > 0:
-				answer = json.loads(data[0][20:20+leng].replace('\x00',''),encoding='utf8')
+				answer = json.loads(data[0][20:20+leng].replace(b'\x00',b''),encoding='utf8')
 				break
 		except:
 			e += 1
@@ -384,16 +399,12 @@ def ProcessCMD(cmd):
 			print(_("Searching %s, found %d devices")%(cmd[1],len(devices)))
 		else:
 			for s in searchers:
-				logs = _("Search")+" %s\r"%s
-				if logLevel >= 10: print(logs)
-				if logLevel >= 20: tolog(logs)
+				tolog(_("Search")+" %s\r"%s)
 				try:
 					devices = searchers[s](devices)
 				except Exception as error:
 					print(" ".join([str(x) for x in list(error.args)]))
-			logs = _("Found %d devices")%len(devices)
-			if logLevel >= 10: print(logs)
-			if logLevel >= 20: tolog(logs)
+			tolog(_("Found %d devices")%len(devices))
 		if len(devices) > 0:
 			if logLevel > 0:
 				cmd[0] = "table"
@@ -432,7 +443,7 @@ def ProcessCMD(cmd):
 		else:
 			return "config [MAC] [IP] [MASK] [GATE] [Pasword]"
 	if cmd[0].lower() == "flash":
-		if len(cmd) > 2 and cmd[1] in devices.keys() and devices[cmd[1]]['Brand'] in flashers.keys():
+		if len(cmd) > 2 and cmd[1] in devices.key(s) and devices[cmd[1]]['Brand'] in flashers.keys():
 			return flashers[devices[cmd[1]]['Brand']](cmd)
 		else:
 			return "flash [MAC] [file]"
@@ -450,21 +461,15 @@ def ProcessCMD(cmd):
 		if len(cmd) > 1:
 			return " ".join(cmd[1:])
 	return ""
-
 class GUITk:
 	def __init__(self,root):
 		self.root=root
 		self.root.wm_title(_("Device Manager"))
-		self.root.tk.call('wm', 'iconphoto', root._w, PhotoImage(data="R0lGODlhIAAgAPcAAAAAAAkFAgwKBwQBABQNBRAQDQQFERAOFA4QFBcWFSAaFCYgGAoUMhwiMSUlJCsrKyooJy8wLjUxLjkzKTY1Mzw7OzY3OEpFPwsaSRsuTRUsWD4+QCo8XQAOch0nYB05biItaj9ARjdHYiRMfEREQ0hIR0xMTEdKSVNOQ0xQT0NEUVFNUkhRXlVVVFdYWFxdXFtZVV9wXGZjXUtbb19fYFRda19gYFZhbF5wfWRkZGVna2xsa2hmaHFtamV0Ynp2aHNzc3x8fHh3coF9dYJ+eH2Fe3K1YoGBfgIgigwrmypajDtXhw9FpxFFpSdVpzlqvFNzj0FvnV9zkENnpUh8sgdcxh1Q2jt3zThi0SJy0Dl81Rhu/g50/xp9/x90/zB35TJv8DJ+/EZqzj2DvlGDrlqEuHqLpHeQp26SuhqN+yiC6imH/zSM/yqa/zeV/zik/1aIwlmP0mmayWSY122h3VWb6kyL/1yP8UGU/UiW/VWd/miW+Eqp/12k/1Co/1yq/2Gs/2qr/WKh/nGv/3er9mK3/3K0/3e4+4ODg4uLi4mHiY+Qj5WTjo+PkJSUlJycnKGem6ShnY2ZrKOjo6urrKqqpLi0prS0tLu8vMO+tb+/wJrE+bzf/sTExMfIx8zMzMjIxtrWyM/Q0NXU1NfY193d3djY1uDf4Mnj+931/OTk5Ozs7O/v8PLy8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAEAAAAALAAAAAAgACAAAAj+AAEIHEiwoMGDCBMqXMiwocOHECNKnEixosWLGDNq3Mgx4iVMnTyJInVKlclSpD550nRpUqKGmD59EjWqlMlVOFWdIgWq0iNNoBIhSujokidPn0aNKrmqVStWqjxRumTqyI5KOxI5OpiIkiakNG2yelqK5alKLSAJgbBBB6RIjArmCKLIkV1HjyZNpTTJFKgSQoI4cGBiBxBIR6QM6TGQxooWL3LwMBwkSJEcLUq8YATDAZAdMkKh+GGpAo0cL1wInJuokSNIeqdeCgLBAoVMR2CEMkHDzAcnTCzsCAKERwsXK3wYKYLIdd6pjh4guCGJw5IpT7R8CeNlCwsikx7+JTJ+PAZlRHXxOgqBAQMTLXj0AAKkJw+eJw6CXGqJyAWNyT8QgZ5rsD2igwYEOOEGH38EEoghgcQhQgJAxISJI/8ZNoQUijiX1yM7NIBAFm3wUcghh9yBhQcCFEBDJ6V8MskKhgERxBGMMILXI7AhsoAAGSgRBRlliLHHHlZgMAAJmLByCiUnfGajFEcgotVzjkhggAYjjBHFFISgkoodSDAwAyStqDIJAELs4CYQQxChVSRTQcJCFWmUyAcghmzCCRgdXCEHEU69VJiNdDmnV0s4rNHFGmzgkUcfhgiShAd0nNHDVAc9YIEFFWxAQgkVpKAGF1yw4UYdc6AhhQohJFiwQAIRPQCHFlRAccMJFCRAgAAVJXDBBAsQEEBHDwUEADs="))
+		self.root.tk.call('wm', 'iconphoto', root._w, PhotoImage(data=icon))
 		self.f = ttk.Frame(self.root)
-		#self.f.rowconfigure(1, weight=1)
-		#self.f.columnconfigure(0, weight=1)
 		self.f.pack(fill=BOTH, expand=YES)
 
 		self.fr = ttk.Frame(self.f)
-		#self.fr.pack(fill=BOTH, expand=YES)
-		#self.fr.rowconfigure(0, weight=1)
-		#self.fr.columnconfigure(0, weight=1)
 		self.fr.grid(row=0, column=0, columnspan=3, sticky="nsew")
 		self.fr_tools = ttk.Frame(self.f)
 		self.fr_tools.grid(row=1, column=0, columnspan=3, sticky="ew")
@@ -472,7 +477,6 @@ class GUITk:
 		self.fr_config.grid(row=0, column=5, rowspan=2, sticky="nsew")
 
 		self.table = ttk.Treeview(self.fr, show='headings', selectmode='browse', height=10)
-		self.table.pack(fill=BOTH, expand=YES)
 		self.table.grid(column=0, row=0, sticky="nsew")
 		self.table["columns"]=("ID","vendor","addr","port","name","mac","sn")
 		self.table["displaycolumns"]=("vendor","addr","port","name","mac","sn")
@@ -627,7 +631,234 @@ class GUITk:
 		else:
 			_mac = self.table.item(self.table.selection()[0], option='values')[4]
 		result = ProcessCMD(["flash",_mac,filename])
-		if hasattr(result, 'keys') and 'Ret' in result.keys() and 'Ret' in CODES.keys(): showerror(_("Error"),CODES[result['Ret']])
+		if hasattr(result, 'keys') and 'Ret' in result.keys() and result['Ret'] in CODES.keys(): showerror(_("Error"),CODES[result['Ret']])
+
+class GUIKivy(App):
+	def _(self,t):
+		return _(t)
+	def build(self):
+		class IORedirector(object):
+			def __init__(self,TEXT_INFO):
+				self.TEXT_INFO = TEXT_INFO
+			def write(self,str):
+				if len(str) > 1: self.TEXT_INFO.text=str
+		root = Builder.load_string('''
+PageLayout:
+    BoxLayout:
+        orientation: 'vertical'
+        canvas:
+            Color:
+                rgba: 0, 0, 0, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+        BoxLayout:
+            size_hint_y: None
+            height: dp(20)
+            canvas:
+                Color:
+                    rgba: .3, .3, .3, 1
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+            Label:
+                size_hint_x: .2
+                text: app._("IP Address")
+            Label:
+                size_hint_x: .1
+                text:app._("Vendor")
+            Label:
+                size_hint_x: .1
+                text: app._("Port")
+            Label:
+                size_hint_x: .2
+                text: app._("Name")
+            Label:
+                size_hint_x: .21
+                text: app._("MAC Address")
+            Label:
+                size_hint_x: .22
+                text: app._("SN")
+        ListView:
+            id: table
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: dp(40)
+            Spinner:
+                id: ven
+                size_hint_x: None
+                width: dp(100)
+                font_size: dp(18)
+                text: app._('All')
+                values: [app._('All'),'XM', 'Dahua', 'Fros','Wans']
+            Button:
+                size_hint_x: None
+                width: dp(100)
+                text: app._("Search")
+                font_size: dp(18)
+                on_release: app.search()
+            Button:
+                size_hint_x: None
+                width: dp(100)
+                text: app._("Reset")
+                font_size: dp(18)
+                on_release: app.clear()
+            Button:
+                size_hint_x: None
+                width: dp(100)
+                text: app._("Export")
+                font_size: dp(18)
+            Button:
+                size_hint_x: None
+                width: dp(100)
+                text: app._("Flash")
+                font_size: dp(18)
+            Label:
+                id: info
+                font_size: dp(18)
+                text: " "
+    GridLayout:
+        cols: 2
+        row_force_default: True
+        row_default_height:dp(30)
+        spacing: [dp(30),dp(5)]
+        padding: [dp(10), dp(10)]
+        canvas:
+            Color:
+                rgba: .1, .1, .1, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+        Label:
+            halign: 'right'
+            text: app._("Name")
+        TextInput:
+            id: name
+            text: ""
+        Label:
+            halign: 'right'
+            text: app._("IP Address")
+        TextInput:
+            id: addr
+            text: ""
+        Label:
+            halign: 'right'
+            text: app._("Mask")
+        TextInput:
+            id: mask
+            text: ""
+        Label:
+            halign: 'right'
+            text: app._("Gateway")
+        TextInput:
+            id: gate
+            text: ""
+        Label:
+            halign: 'right'
+            text: app._("HTTP Port")
+        TextInput:
+            id: http
+            text: ""
+        Label:
+            halign: 'right'
+            text: app._("TCP Port")
+        TextInput:
+            id: tcp
+            text: ""
+        Label:
+            id: label2
+            halign: 'right'
+            text: app._("Password")
+        TextInput:
+            id: passw
+            text: ""
+        Button:
+            text: app._("Apply")
+''')
+		self.table = root.ids.table
+		self.table.adapter = ListAdapter(
+						data=[], 
+						cls=CompositeListItem, selection_mode='single', 
+						args_converter=lambda row_index, rec: {'text': rec['mac'],'size_hint_y': None,'height': dp(35),
+							'cls_dicts': [
+								{'cls': ListItemButton,'kwargs': {'id':rec['mac'],'text': str(rec['addr']),'size_hint_x': .2,'font_size':dp(18)}},
+								{'cls': ListItemLabel,'kwargs': {'text': rec['vendor'],'size_hint_x': .1,'padding':(dp(1),0),'font_size':dp(18)}},
+								{'cls': ListItemLabel,'kwargs': {'text': str(rec['port']),'size_hint_x': .1,'padding':(dp(1),0),'font_size':dp(18)}},
+								{'cls': ListItemLabel,'kwargs': {'text': rec['name'],'size_hint_x': .2,'padding':(dp(1),0),'font_size':dp(18)}},
+								{'cls': ListItemLabel,'kwargs': {'text': rec['mac'],'size_hint_x': .21,'padding':(dp(1),0),'font_size':dp(18)}},
+								{'cls': ListItemLabel,'kwargs': {'text': rec['sn'],'size_hint_x': .22,'is_representing_cls': True,'font_size':dp(18)}}
+							]})
+		self.table.adapter.bind(on_selection_change=self.select)
+		#sys.stdout=IORedirector(root.ids.info)
+		return root
+	def search(self):
+		self.clear()
+		if self.root.ids.ven.values.index(self.root.ids.ven.text) == 0:
+			ProcessCMD(["search"])
+		else:
+			ProcessCMD(["search",self.root.ids.ven.text])
+		self.pop()
+	def pop(self):
+		for dev in devices:
+			self.table.adapter.data.append({'addr':GetIP(devices[dev]['HostIP']),'vendor':devices[dev]['Brand'],'port':devices[dev]['TCPPort'],"name":devices[dev]['HostName'],"mac":devices[dev]['MAC'],"sn":devices[dev]['SN']})
+	def clear(self):
+		global devices
+		self.table.adapter.data = []
+		self.root.ids.info.text = ""
+		devices = {}
+	def select(self, event=None):
+		if len(self.table.adapter.selection) == 0:
+			return
+		dev = self.table.adapter.selection[0].id
+		if logLevel >= 20 : print(json.dumps(devices[dev], indent = 4, sort_keys = True))
+		self.root.ids.name.text=devices[dev]['HostName']
+		self.root.ids.addr.text=GetIP(devices[dev]['HostIP'])
+		self.root.ids.mask.text=GetIP(devices[dev]['Submask'])
+		self.root.ids.gate.text=GetIP(devices[dev]['GateWay'])
+		self.root.ids.http.text=str(devices[dev]['HttpPort'])
+		self.root.ids.tcp.text=str(devices[dev]['TCPPort'])
+	def setconfig(self):
+		if len(self.table.adapter.selection) == 0:
+			return
+		dev = self.table.adapter.selection[0].id
+		devices[dev][u'TCPPort'] = int(self.root.ids.tcp.text)
+		devices[dev][u'HttpPort'] = int(self.root.ids.http.text)
+		devices[dev][u'HostName'] = self.root.ids.name.text
+		result = ProcessCMD(["config",dev,self.root.ids.addr.text,self.root.ids.mask.text,self.root.ids.gate.text,self.root.ids.passw.text])
+		if result['Ret'] == 100:
+			for i in range(0,len(self.table.adapter.data)):
+				if self.table.adapter.data[i]["mac"] == dev:
+					self.table.adapter.data[i]["addr"]=GetIP(devices[dev]['HostIP'])
+					self.table.adapter.data[i]["port"]=devices[dev]['TCPPort']
+					self.table.adapter.data[i]["name"]=devices[dev]['HostName']
+		else:
+			showerror(_("Error"),CODES[result['Ret']])
+	def export(self):
+		filename = "dump.json"
+		if filename == "":
+			return
+		ProcessCMD(["log",filename])
+		ProcessCMD(["loglevel", str(100)])
+		if ".json" in filename:
+			ProcessCMD(["json"])
+		elif ".csv" in filename:
+			ProcessCMD(["csv"])
+		elif ".htm" in filename:
+			ProcessCMD(["html"])
+		else:
+			ProcessCMD(["table"])
+		ProcessCMD(["loglevel", str(10)])
+	def flash(self):
+		filename = ""
+		if filename == "":
+			return
+		if len(self.table.selection()) == 0:
+			_mac="all"
+		else:
+			_mac = self.table.item(self.table.selection()[0], option='values')[4]
+		result = ProcessCMD(["flash",_mac,filename])
+		if hasattr(result, 'keys') and 'Ret' in result.keys() and result['Ret'] in CODES.keys(): showerror(_("Error"),CODES[result['Ret']])
 
 searchers = {"wans":SearchWans,"xm":SearchXM,"dahua":SearchDahua,"fros":SearchFros,}
 configure = {"wans":ConfigWans,"xm":ConfigXM,"fros":ConfigFros}#,"dahua":ConfigDahua
@@ -648,9 +879,13 @@ if __name__ == "__main__":
 		#ttk.Style.theme_use(Style, "clam")
 		root.mainloop()
 		sys.exit(1)
+	if GUI_Kivy and "-n" not in sys.argv:
+		app = GUIKivy()
+		app.run()
+		sys.exit(1)
 	print(_("Type help or ? to display help(q or quit to exit)"))
 	while True:
-		data = input("> ").split(";")
+		data = raw_input("> ").split(";")
 		for cmd in data:
 			result = ProcessCMD(cmd.split(" "))
 			if hasattr(result, 'keys') and 'Ret' in result.keys():
