@@ -26,6 +26,7 @@ class DVRIPCam(object):
 		"AlarmInfo":1504,
 		"AlarmSet":1500,
 		"KeepAlive":1006,
+		"ChannelTitle":1046,
 		"OPTimeQuery":1452,
 		"OPTimeSetting":1450,
 		"OPMailTest":1636,
@@ -113,6 +114,8 @@ class DVRIPCam(object):
 		self.alive_time = data["AliveInterval"]
 		self.keep_alive()
 		return data["Ret"] in self.OK_CODES
+	def channel_title(self,title):
+		self.send(self.QCODES["ChannelTitle"],{ 'ChannelTitle' : [title], "Name":"ChannelTitle","SessionID":"0x%08X"%self.session})
 	def reboot(self):
 		self.set(self.QCODES["OPMachine"],"OPMachine",{ "Action" : "Reboot" })
 		self.close()
