@@ -9,8 +9,8 @@ from datetime import *
 if len(sys.argv) > 1:
 	port = sys.argv[1]
 else:
-	print "Usage: %s [Port]"%os.path.basename(sys.argv[0])
-	port = raw_input("Port(default 15002): ")
+	print("Usage: %s [Port]"%os.path.basename(sys.argv[0]))
+	port = input("Port(default 15002): ")
 if port=="":
 	port="15002"
 server = socket(AF_INET, SOCK_STREAM)
@@ -33,10 +33,10 @@ while True:
 		data = conn.recv(len_data)
 		conn.close()
 		reply = json.loads(data,encoding="utf8")
-		print datetime.now().strftime("[%Y-%m-%d %H:%M:%S]>>>")
-		print head, version, session, sequence_number, msgid, len_data
-		print json.dumps(data, indent = 4, sort_keys = True)
-		print "<<<"
+		print(datetime.now().strftime("[%Y-%m-%d %H:%M:%S]>>>"))
+		print(head, version, session, sequence_number, msgid, len_data)
+		print(json.dumps(reply, indent = 4, sort_keys = True))
+		print("<<<")
 		tolog(repr(data)+"\r\n")
 	except (KeyboardInterrupt, SystemExit):
 		break
