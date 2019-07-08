@@ -1,12 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#qpy:kivy
 
 import os,sys,struct,json
 from locale import getdefaultlocale
+from subprocess import check_output
 from socket import *
 from datetime import *
 import hashlib,base64
+
+#Python 2/3 capability test
+try:
+	_=str(b'ef','ascii')
+	_str=lambda x,y: str(x,y)
+	_bytes=lambda x,y: bytes(x,y)
+except:
+	_str=lambda x,y: x.decode(y)
+	_bytes=lambda x,y: x.encode(y)
 
 try:
 	try:
@@ -140,8 +149,8 @@ CODES = {
 def tolog(s):
 	print(s)
 	if logLevel >= 20:
-		logfile = open(log, "a+")
-		logfile.write(s)
+		logfile = open(log, "wb")
+		logfile.write(_bytes(s,"utf-8"))
 		logfile.close()
 def local_ip():
 	ip = gethostbyname_ex(gethostname())[2][0]
@@ -170,7 +179,10 @@ def SetIP(ip):
 	return "0x%08X"%struct.unpack('I',inet_aton(ip))
 
 def GetAllAddr():
-	return [i[4][0] for i in getaddrinfo(gethostname(), None) if i[0].name=='AF_INET'] #IPv4 Only
+	if os.name == 'nt':
+		return [x.split(":")[1].strip() for x in _str(check_output(["ipconfig"]),"866").split("\r\n") if "IPv4" in x]
+	else:
+		return [x.split("/")[0].strip().split(" ")[1] for x in _str(check_output(["ip","address"]),"ascii").split("\n") if "inet " in x and "127.0." not in x]
 
 def SearchXM(devices, address=''):
 	server = socket(AF_INET, SOCK_DGRAM)
