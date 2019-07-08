@@ -6,7 +6,7 @@ import os,sys,struct,json
 from locale import getdefaultlocale
 from socket import *
 from datetime import *
-import hashlib
+import hashlib,base64
 
 try:
 	try:
@@ -169,19 +169,22 @@ def GetIP(s):
 def SetIP(ip):
 	return "0x%08X"%struct.unpack('I',inet_aton(ip))
 
-def SearchXM(devices):
+def GetAllAddr():
+	return [i[4][0] for i in getaddrinfo(gethostname(), None) if i[0].name=='AF_INET'] #IPv4 Only
+
+def SearchXM(devices, address=''):
 	server = socket(AF_INET, SOCK_DGRAM)
-	server.bind(('',34569))
+	server.bind((address,34569))
 	server.settimeout(1)
 	server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
 	server.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-	server.sendto(struct.pack('BBHIIHHI',255,0,0,0,0,0,1530,0),("255.255.255.255", 34569))
+	server.sendto(struct.pack('BBHIIHHI',255,0,0,0,0,0,1530,0),('255.255.255.255', 34569))
 	while True:
 		try:
 			data = server.recvfrom(1024)
 			head,ver,typ,session,packet,info,msg,leng = struct.unpack('BBHIIHHI',data[0][:20])
 			if (msg == 1531) and leng > 0:
-				answer = json.loads(data[0][20:20+leng].replace(b'\x00',b''),encoding="utf8")
+				answer = json.loads(data[0][20:20+leng].replace(b'\x00',b''),encoding='utf8')
 				if answer['NetWork.NetCommon']['MAC'] not in devices.keys():
 					devices[answer['NetWork.NetCommon']['MAC']] = answer['NetWork.NetCommon']
 					devices[answer['NetWork.NetCommon']['MAC']][u'Brand'] = u"xm"
@@ -190,13 +193,13 @@ def SearchXM(devices):
 	server.close()
 	return devices
 
-def SearchDahua(devices):
+def SearchDahua(devices, address=''):
 	server = socket(AF_INET, SOCK_DGRAM)
-	server.bind(('',5050))
+	server.bind((address,5050))
 	server.settimeout(1)
 	server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
 	server.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-	server.sendto(b'\xa3\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',("255.255.255.255", 5050))
+	server.sendto(b'\xa3\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',('255.255.255.255', 5050))
 	while True:
 		try:
 			data = server.recvfrom(1024)
@@ -218,12 +221,13 @@ def SearchDahua(devices):
 	server.close()
 	return devices
 
-def SearchFros(devices):
+def SearchFros(devices, address=''):
 	server = socket(AF_INET, SOCK_DGRAM)
+	server.bind((address,10000))
+	server.settimeout(1)
 	server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
 	server.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-	server.settimeout(1)
-	server.sendto(b'MO_I\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x01', ("255.255.255.255", 10000))
+	server.sendto(b'MO_I\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x01', ('255.255.255.255', 10000))
 	while True:
 		try:
 			data = server.recvfrom(1024)
@@ -244,15 +248,16 @@ def SearchFros(devices):
 	server.close()
 	return devices
 
-def SearchWans(devices):
-	client = socket(AF_INET, SOCK_DGRAM)
-	client.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-	client.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-	client.settimeout(1.3)
-	client.sendto(b'DH\x01\x01',("255.255.255.255", 8600))
+def SearchWans(devices, address=''):
+	server = socket(AF_INET, SOCK_DGRAM)
+	server.bind((address,8600))
+	server.settimeout(1.3)
+	server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+	server.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
+	server.sendto(b'DH\x01\x01',('255.255.255.255', 8600))
 	while True:
 		try:
-			data = client.recvfrom(1024)
+			data = server.recvfrom(1024)
 			mac = [0,0,0,0,0,0]
 			head, pver, type, ip, mask, gate, dns2, dns, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], port, ser, name, ver, webver, user, passwd, dhcp = struct.unpack('2sBB16s16s16s16s16s6BH32s32s48x16s16s32s32sxB22x',data[0][:324])
 			mac = "%02x:%02x:%02x:%02x:%02x:%02x"%(mac[0], mac[1], mac[2], mac[3], mac[4], mac[5])
@@ -262,7 +267,29 @@ def SearchWans(devices):
 				devices[mac] = { u"Brand":u"wans",u"GateWay" : gate, u"DNS": dns, u"HostIP" : ip, u"HostName" : name, u"HttpPort" : port, u"TCPPort": port, u"MAC" : mac, u"MaxBps" : 0, u"MonMode" : u"HTTP", u"SN" : ser, u"Submask" : mask, u"SwVer": ver, u"WebVer": webver }
 		except:
 			break
-	client.close()
+	server.close()
+	return devices
+#b'gE\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+def SearchBeward(devices, address=''):
+	server = socket(AF_INET, SOCK_DGRAM)
+	server.bind((address,6667))
+	server.settimeout(1)
+	server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+	server.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
+	server.sendto(b'u4aRnryQk5CN08/P08DAwMD/',("255.255.255.255", 6666))
+	while True:
+		try:
+			data = server.recvfrom(1024)
+			tolog(repr((base64.b64decode(data[0]),data[1]))+"\n")
+			#head,ver,typ,session,packet,info,msg,leng = struct.unpack('BBHIIHHI',data[0][:20])
+			#if (msg == 1531) and leng > 0:
+			#	answer = json.loads(data[0][20:20+leng].replace(b'\x00',b''),encoding="utf8")
+			#	if answer['NetWork.NetCommon']['MAC'] not in devices.keys():
+			#		devices[answer['NetWork.NetCommon']['MAC']] = answer['NetWork.NetCommon']
+			#		devices[answer['NetWork.NetCommon']['MAC']][u'Brand'] = u"xm"
+		except:
+			break
+	server.close()
 	return devices
 
 def ConfigXM(data):
@@ -379,24 +406,26 @@ def ProcessCMD(cmd):
 	if cmd[0].lower() in ["help","?","/?","-h","--help"]:
 		return help
 	if cmd[0].lower() == "search":
-		if len(cmd) > 1 and cmd[1].lower() in searchers.keys():
-			try:
-				devices = searchers[cmd[1].lower()](devices)
-			except Exception as error:
-				print(" ".join([str(x) for x in list(error.args)]))
-			print(_("Searching %s, found %d devices")%(cmd[1],len(devices)))
-		else:
-			for s in searchers:
-				tolog(_("Search")+" %s\r"%s)
+		for addr in GetAllAddr():
+			tolog("%s %s %s"%(_("Search"),addr,_("IP Address")))
+			if len(cmd) > 1 and cmd[1].lower() in searchers.keys():
 				try:
-					devices = searchers[s](devices)
+					devices = searchers[cmd[1].lower()](devices, addr)
 				except Exception as error:
 					print(" ".join([str(x) for x in list(error.args)]))
-			tolog(_("Found %d devices")%len(devices))
-		if len(devices) > 0:
-			if logLevel > 0:
-				cmd[0] = "table"
-				print("")
+				print(_("Searching %s, found %d devices")%(cmd[1],len(devices)))
+			else:
+				for s in searchers:
+					tolog(_("Search")+" %s\r"%s)
+					try:
+						devices = searchers[s](devices, addr)
+					except Exception as error:
+						print(" ".join([str(x) for x in list(error.args)]))
+				tolog(_("Found %d devices")%len(devices))
+			if len(devices) > 0:
+				if logLevel > 0:
+					cmd[0] = "table"
+					print("")
 	if cmd[0].lower() == "table":
 		logs = _("Vendor")+"\t"+_("MAC Address")+"\t\t"+_("Name")+"\t"+_("IP Address")+"\t"+_("Port")+"\n"
 		for dev in devices:
@@ -530,7 +559,7 @@ class GUITk:
 		self.l7.grid(row=0, column=0,pady=3,padx=5,sticky="wns")
 		self.ven = ttk.Combobox(self.fr_tools, width=10)
 		self.ven.grid(row=0, column=1,padx=5,sticky="w")
-		self.ven['values'] = [_("All"), "XM", "Dahua", "Fros", "Wans"]
+		self.ven['values'] = [_("All"), "XM", "Dahua", "Fros", "Wans", "Beward"]
 		self.ven.current(0)
 		self.search = ttk.Button(self.fr_tools, text=_("Search"),command=self.search)
 		self.search.grid(row=0, column=2,pady=5,padx=5,sticky=W+N)
@@ -621,10 +650,10 @@ class GUITk:
 		result = ProcessCMD(["flash",_mac,filename])
 		if hasattr(result, 'keys') and 'Ret' in result.keys() and result['Ret'] in CODES.keys(): showerror(_("Error"),CODES[result['Ret']])
 
-searchers = {"wans":SearchWans,"xm":SearchXM,"dahua":SearchDahua,"fros":SearchFros,}
+searchers = {"wans":SearchWans,"xm":SearchXM,"dahua":SearchDahua,"fros":SearchFros,"beward":SearchBeward,}
 configure = {"wans":ConfigWans,"xm":ConfigXM,"fros":ConfigFros}#,"dahua":ConfigDahua
 flashers  = {}#"xm":FlashXM,"dahua":FlashDahua,"fros":FlashFros
-logLevel = 10
+logLevel = 30
 if __name__ == "__main__":
 	if len(sys.argv) > 1:
 		cmds = " ".join(sys.argv[1:])
