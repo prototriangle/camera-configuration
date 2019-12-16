@@ -12,12 +12,12 @@ if len(sys.argv) > 1:
 cam = DVRIPCam(host_ip,"admin","46216")
 
 if cam.login():
-	print "Success! Connected to " + host_ip
+	print("Success! Connected to " + host_ip)
 else:
-	print "Failure. Could not connect."
+	print("Failure. Could not connect.")
 
 info = cam.get_info("fVideo.OSDInfo")
-print json.dumps(info, ensure_ascii=False)
+print(json.dumps(info, ensure_ascii=False))
 info["OSDInfo"][0]["Info"] = [u'Тест00',"Test01","Test02"]
 #info["OSDInfo"][0]["Info"][1] = ""
 #info["OSDInfo"][0]["Info"][2] = ""
@@ -29,7 +29,7 @@ cam.set_info("fVideo.OSDInfo", info)
 #enc_info = cam.get_info("Simplify.Encode")
 #Alarm example
 def alarm(content, ids):
-        print content
+        print(content)
 cam.setAlarm(alarm)
 cam.alarmStart()
 #cam.get_encode_info()
