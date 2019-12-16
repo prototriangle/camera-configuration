@@ -78,15 +78,15 @@ class DVRIPCam(object):
 		#self.busy.wait()
 		self.busy.acquire()
 		if hasattr(data, '__iter__'):
-			data = json.dumps(data, ensure_ascii=False).encode('utf8')
-		self.socket.send(struct.pack('BB2xII2xHI',255, 0, self.session, self.packet_count, msg ,len(data)+2)+data+"\x0a\x00")
+			data = bytes(json.dumps(data, ensure_ascii=False), "utf-8")
+		self.socket.send(struct.pack('BB2xII2xHI',255, 0, self.session, self.packet_count, msg ,len(data)+2)+data+b"\x0a\x00")
 		reply = {"Ret":101}
 		try:
 			head, version, self.session, sequence_number, msgid, len_data = struct.unpack('BB2xII2xHI',self.socket.recv(20))
 			sleep(.1)#Just for recive whole packet
 			reply = self.socket.recv(len_data)
 			self.packet_count += 1
-			reply = json.loads(reply[:-2],encoding="utf8")
+			reply = json.loads(reply[:-2],encoding="utf-8")
 		except:
 			pass
 		finally:
@@ -94,9 +94,9 @@ class DVRIPCam(object):
 		return reply
 	def sofia_hash(self, password):
 		s = ""
-		md5 = hashlib.md5(password).digest()
+		md5 = hashlib.md5(bytes(password,"utf-8")).digest()
 		for n in range(8):
-			c = (ord(md5[2*n])+ord(md5[2*n+1]))%62
+			c = (md5[2*n]+md5[2*n+1])%62
 			if c > 9:
 				if c > 35:
 					c += 61
@@ -120,7 +120,7 @@ class DVRIPCam(object):
 		self.set(self.QCODES["OPMachine"],"OPMachine",{ "Action" : "Reboot" })
 		self.close()
 	def pretty_print(self, data):
-		print json.dumps(data, indent = 4, sort_keys = True)
+		print(json.dumps(data, indent = 4, sort_keys = True))
 	def setAlarm(self, func):
 		self.alarm_func = func
 	def clearAlarm(self):
@@ -160,23 +160,25 @@ class DVRIPCam(object):
 		self.keyUp(key)
 	def keyScript(self, keys):
 		for k in keys:
-			if k != " " and self.KEY_CODES.has_key(k.upper()):
+			if k != " " and k.upper() in self.KEY_CODES:
 				self.keyPress(self.KEY_CODES[k.upper()])
 			else:
 				sleep(1)
-	def ptz(self, cmd, ch = 0):
-		ptz_param = { "AUX" : { "Number" : 0, "Status" : "On" }, "Channel" : ch, "MenuOpts" : "Enter", "POINT" : { "bottom" : 0, "left" : 0, "right" : 0, "top" : 0 }, "Pattern" : "SetBegin", "Preset" : -1, "Step" : 5, "Tour" : 0 }
-		self.set(self.QCODES["OPPTZControl"], "OPPTZControl", { "Command" : cmd, "Parameter" : ptz_param })
+	def ptz(self, cmd, step = 5, preset=-1, ch = 0):
+		CMDS = ["DirectionUp","DirectionDown","DirectionLeft","DirectionRight","DirectionLeftUp","DirectionLeftDown","DirectionRightUp","DirectionRightDown","ZoomTile","ZoomWide","FocusNear","FocusFar","IrisSmall","IrisLarge","SetPreset","GotoPreset","ClearPreset","StartTour","StopTour"]
+		#ptz_param = { "AUX" : { "Number" : 0, "Status" : "On" }, "Channel" : ch, "MenuOpts" : "Enter", "POINT" : { "bottom" : 0, "left" : 0, "right" : 0, "top" : 0 }, "Pattern" : "SetBegin", "Preset" : -1, "Step" : 5, "Tour" : 0 }
+		ptz_param = { "AUX" : { "Number" : 0, "Status" : "On" }, "Channel" : ch, "MenuOpts" : "Enter", "Pattern" : "Start", "Preset" : preset, "Step" : step, "Tour" : 1 if "Tour" in cmd else 0 }
+		return self.set(self.QCODES["OPPTZControl"], "OPPTZControl", { "Command" : cmd, "Parameter" : ptz_param })
 	def set_info(self, command, data):
 		return self.set(1040, command, data)
 	def set(self, code, command, data):
-		return self.send(code, {"Name":str(command),"SessionID":"0x%08X"%self.session,str(command):data})
+		return self.send(code, {"Name":command,"SessionID":"0x%08X"%self.session,command:data})
 	def get_info(self, command):
 		return self.get(1042, command)
 	def get(self, code, command):
-		data = self.send(code, {"Name":str(command),"SessionID":"0x%08X"%self.session})
-		if data["Ret"] in self.OK_CODES and data.has_key(str(command)):
-			return data[str(command)]
+		data = self.send(code, {"Name":command,"SessionID":"0x%08X"%self.session})
+		if data["Ret"] in self.OK_CODES and command in data:
+			return data[command]
 		else:
 			return data
 	def get_time(self):
@@ -211,7 +213,6 @@ class DVRIPCam(object):
 
 			Arguments:
 			default -- returns the default values for the type if True
-
 		"""
 
 		if default:
