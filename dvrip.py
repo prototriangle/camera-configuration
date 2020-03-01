@@ -93,19 +93,9 @@ class DVRIPCam(object):
 			self.busy.release()
 		return reply
 	def sofia_hash(self, password):
-		s = ""
 		md5 = hashlib.md5(bytes(password,"utf-8")).digest()
-		for n in range(8):
-			c = (md5[2*n]+md5[2*n+1])%62
-			if c > 9:
-				if c > 35:
-					c += 61
-				else:
-					c += 55
-			else:
-				c += 48
-			s += chr(c)
-		return s
+		chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+		return "".join([chars[sum(x)%62] for x in zip(md5[::2],md5[1::2])])
 	def login(self):
 		if self.socket == None:
 			self.connect()
@@ -114,8 +104,9 @@ class DVRIPCam(object):
 		self.alive_time = data["AliveInterval"]
 		self.keep_alive()
 		return data["Ret"] in self.OK_CODES
-	def channel_title(self,title):
-		self.send(self.QCODES["ChannelTitle"],{ 'ChannelTitle' : [title], "Name":"ChannelTitle","SessionID":"0x%08X"%self.session})
+	def channel_title(self,titles):
+		if isinstanceof(titles,str):titles=[titles]
+		self.send(self.QCODES["ChannelTitle"],{ 'ChannelTitle' : titles, "Name":"ChannelTitle","SessionID":"0x%08X"%self.session})
 	def reboot(self):
 		self.set(self.QCODES["OPMachine"],"OPMachine",{ "Action" : "Reboot" })
 		self.close()
