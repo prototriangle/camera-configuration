@@ -105,7 +105,7 @@ class DVRIPCam(object):
 		self.keep_alive()
 		return data["Ret"] in self.OK_CODES
 	def channel_title(self,titles):
-		if isinstanceof(titles,str):titles=[titles]
+		if isinstance(titles,str):titles=[titles]
 		self.send(self.QCODES["ChannelTitle"],{ 'ChannelTitle' : titles, "Name":"ChannelTitle","SessionID":"0x%08X"%self.session})
 	def reboot(self):
 		self.set(self.QCODES["OPMachine"],"OPMachine",{ "Action" : "Reboot" })
