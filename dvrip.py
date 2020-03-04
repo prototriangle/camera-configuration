@@ -270,7 +270,6 @@ class DVRIPCam(object):
 					vprint("Upgrade failed")
 					return reply
 
-				print(reply)
 				progress = sentbytes/fsize*100
 				vprint(f"Uploaded {progress:.2f}%")
 		vprint("End of file")
@@ -281,21 +280,17 @@ class DVRIPCam(object):
 		vprint("Waiting for upgrade...")
 		while True:
 			reply, rcvd = self.recv_json(rcvd)
-			print("Wait(), json:", reply, "\nbuffer: ", rcvd)
 			if reply:
 				if reply["Name"] == '' and reply["Ret"] == 100:
 					break
 
 		while True:
 			data, rcvd = self.recv_json(rcvd)
-			print(data)
 			if data["Ret"] in [512, 513]:
 				vprint("Upgrade failed")
 				return data
 			if data["Ret"] == 515:
 				vprint("Upgrade successful")
 				self.socket.close()
-				print("Socket closed")
 				return data
-			print(data)
 			vprint(f"Upgraded {data['Ret']}%")
