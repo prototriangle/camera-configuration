@@ -234,7 +234,7 @@ class DVRIPCam(object):
 			print(buf)
 			return None
 		buf = buf[m.span(1)[1]:]
-		return json.loads(m.group(1),encoding="utf-8")
+		return json.loads(m.group(1),encoding="utf-8"), buf
 
 	def get_upgrade_info(self):
 		return self.get(self.QCODES["OPSystemUpgrade"], "OPSystemUpgrade")
@@ -264,7 +264,7 @@ class DVRIPCam(object):
 				blocknum+=1
 				sentbytes+=len(bytes)
 
-				reply = self.recv_json(rcvd)
+				reply, rcvd = self.recv_json(rcvd)
 
 				if reply["Ret"] != 100:
 					vprint("Upgrade failed")
@@ -273,30 +273,22 @@ class DVRIPCam(object):
 				print(reply)
 				progress = sentbytes/fsize*100
 				vprint(f"Uploaded {progress:.2f}%")
-
 		vprint("End of file")
-		rcvd = bytearray()
+
 		pkt = struct.pack('BB2xIIxBHI',255, 0, self.session,
 									 blocknum, 1, 0x05f2, 0)
 		self.socket.send(pkt)
 		vprint("Waiting for upgrade...")
 		while True:
-			reply = self.recv_json(rcvd)
-			print("Wait: ", reply)
+			reply, rcvd = self.recv_json(rcvd)
+			print("Wait(), json:", reply, "\nbuffer: ", rcvd)
 			if reply:
 				if reply["Ret"] not in [0, 100]:
 					break
 
-		p = re.compile(b".*({.*})")
 		while True:
-			rcvd = self.socket.recv(0xffff)
-			print(rcvd)
-			bmatch = p.search(rcvd)
-			if bmatch is None:
-				vprint("Upgrade failed")
-				return rcvd
-			print(rcvd)
-			data = json.loads(bmatch.group(1),encoding="utf-8")
+			data, rcvd = self.recv_json(rcvd)
+			print(data)
 			if data["Ret"] in [512, 513]:
 				vprint("Upgrade failed")
 				return data
