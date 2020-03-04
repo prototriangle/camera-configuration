@@ -7,6 +7,7 @@ import hashlib
 import threading
 from socket import *
 from datetime import *
+import re
 
 class DVRIPCam(object):
 	DATE_FORMAT="%Y-%m-%d %H:%M:%S"
@@ -20,6 +21,10 @@ class DVRIPCam(object):
 		106 : "Username or password is incorrect",
 		107 : "User does not have necessary permissions",
 		203 : "Password is incorrect",
+		511 : "Start of upgrade",
+		512 : "Upgrade was not started",
+		513 : "Upgrade data errors",
+		514 : "Upgrade error",
 		515 : "Upgrade successful"
 	}
 	QCODES = {
@@ -37,7 +42,9 @@ class DVRIPCam(object):
 		"OPPTZControl":1400,
 		"OPNetKeyboard":1550,
 		"SystemFunction":1360,
-		"EncodeCapability":1360
+		"EncodeCapability":1360,
+		"OPSystemUpgrade":0x5f5,
+		"OPSendFile":0x5f2
 	}
 	KEY_CODES = {
 		"M":"Menu",
@@ -67,7 +74,8 @@ class DVRIPCam(object):
 	def connect(self):
 		self.socket = socket(AF_INET, SOCK_STREAM)
 		self.socket.connect((self.ip, self.port))
-		self.socket.settimeout(.2)
+		# it's important to extend timeout for upgrade procedure
+		self.socket.settimeout(10)
 	def close(self):
 		self.alive.cancel()
 		self.socket.close()
@@ -213,3 +221,76 @@ class DVRIPCam(object):
 
 		data = self.get_info(code, "Simplify.Encode")
 		self.pretty_print(data)
+
+	def recv_json(self, buf = bytearray()):
+		p = re.compile(b".*({.*})")
+
+		packet = self.socket.recv(0xffff)
+		if not packet:
+			return None
+		buf.extend(packet)
+		m = p.search(buf)
+		if m is None:
+			print(buf)
+			return None
+		buf = buf[m.span(1)[1]:]
+		return json.loads(m.group(1),encoding="utf-8"), buf
+
+	def get_upgrade_info(self):
+		return self.get(self.QCODES["OPSystemUpgrade"], "OPSystemUpgrade")
+
+	def upgrade(self, filename="", packetsize=0x8000, verbose=True):
+		def vprint(data):
+			if verbose:
+				print(data)
+
+		data = self.set(0x5f0, "OPSystemUpgrade", { "Action" : "Start", "Type" : "System" })
+		if data["Ret"] not in self.OK_CODES:
+			return data
+
+		vprint("Ready to upgrade")
+		blocknum=0
+		sentbytes=0
+		fsize = os.stat(filename).st_size
+		rcvd = bytearray()
+		with open(filename, "rb") as f:
+			while True:
+				bytes = f.read(packetsize)
+				if not bytes:
+					break
+				header = struct.pack('BB2xII2xHI',255, 0, self.session,
+									 blocknum, 0x5f2,len(bytes))
+				self.socket.send(header+bytes)
+				blocknum+=1
+				sentbytes+=len(bytes)
+
+				reply, rcvd = self.recv_json(rcvd)
+
+				if reply["Ret"] != 100:
+					vprint("Upgrade failed")
+					return reply
+
+				progress = sentbytes/fsize*100
+				vprint(f"Uploaded {progress:.2f}%")
+		vprint("End of file")
+
+		pkt = struct.pack('BB2xIIxBHI',255, 0, self.session,
+									 blocknum, 1, 0x05f2, 0)
+		self.socket.send(pkt)
+		vprint("Waiting for upgrade...")
+		while True:
+			reply, rcvd = self.recv_json(rcvd)
+			if reply:
+				if reply["Name"] == '' and reply["Ret"] == 100:
+					break
+
+		while True:
+			data, rcvd = self.recv_json(rcvd)
+			if data["Ret"] in [512, 513]:
+				vprint("Upgrade failed")
+				return data
+			if data["Ret"] == 515:
+				vprint("Upgrade successful")
+				self.socket.close()
+				return data
+			vprint(f"Upgraded {data['Ret']}%")
