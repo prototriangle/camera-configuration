@@ -239,12 +239,16 @@ class DVRIPCam(object):
 	def get_upgrade_info(self):
 		return self.get(self.QCODES["OPSystemUpgrade"], "OPSystemUpgrade")
 
-	def upgrade(self, filename="", packetsize=0x8000):
+	def upgrade(self, filename="", packetsize=0x8000, verbose=True):
+		def vprint(data):
+			if verbose:
+				print(data)
+
 		data = self.set(0x5f0, "OPSystemUpgrade", { "Action" : "Start", "Type" : "System" })
 		if data["Ret"] not in self.OK_CODES:
 			return data
 
-		print("Ready to upgrade")
+		vprint("Ready to upgrade")
 		blocknum=0
 		sentbytes=0
 		fsize = os.stat(filename).st_size
@@ -263,23 +267,25 @@ class DVRIPCam(object):
 				reply = self.recv_json(rcvd)
 
 				if reply["Ret"] != 100:
-					print("Upgrade failed")
+					vprint("Upgrade failed")
 					return reply
 
 				print(reply)
 				progress = sentbytes/fsize*100
-				print(f"Uploaded {progress:.2f}%")
+				vprint(f"Uploaded {progress:.2f}%")
 
-		print("End of file")
+		vprint("End of file")
 		rcvd = bytearray()
 		pkt = struct.pack('BB2xIIxBHI',255, 0, self.session,
 									 blocknum, 1, 0x05f2, 0)
 		self.socket.send(pkt)
-		print("Waiting for upgrade...")
-		reply = self.recv_json(rcvd)
-		print("First reply: ", reply)
-		reply = self.recv_json(rcvd)
-		print("Second reply: ", reply)
+		vprint("Waiting for upgrade...")
+		while True:
+			reply = self.recv_json(rcvd)
+			print("Wait: ", reply)
+			if reply:
+				if reply["Ret"] not in [0, 100]:
+					break
 
 		p = re.compile(b".*({.*})")
 		while True:
@@ -287,17 +293,17 @@ class DVRIPCam(object):
 			print(rcvd)
 			bmatch = p.search(rcvd)
 			if bmatch is None:
-				print("Upgrade failed")
+				vprint("Upgrade failed")
 				return rcvd
 			print(rcvd)
 			data = json.loads(bmatch.group(1),encoding="utf-8")
-			if data["Ret"] == 512 or data["Ret"] == 513:
-				print("Upgrade failed")
+			if data["Ret"] in [512, 513]:
+				vprint("Upgrade failed")
 				return data
 			if data["Ret"] == 515:
-				print("Upgrade successful")
+				vprint("Upgrade successful")
 				self.socket.close()
 				print("Socket closed")
 				return data
 			print(data)
-			print(f"Upgraded {data['Ret']}%")
+			vprint(f"Upgraded {data['Ret']}%")
