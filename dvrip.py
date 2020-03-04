@@ -283,7 +283,7 @@ class DVRIPCam(object):
 			reply, rcvd = self.recv_json(rcvd)
 			print("Wait(), json:", reply, "\nbuffer: ", rcvd)
 			if reply:
-				if reply["Ret"] not in [0, 100]:
+				if reply["Name"] == '' and reply["Ret"] == 100:
 					break
 
 		while True:
