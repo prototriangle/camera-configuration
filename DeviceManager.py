@@ -7,6 +7,7 @@ from subprocess import check_output
 from socket import *
 from datetime import *
 import hashlib,base64
+from dvrip import DVRIPCam
 
 #Python 2/3 capability test
 try:
@@ -25,12 +26,12 @@ try:
 	try:
 		from tkFileDialog import asksaveasfilename,askopenfilename
 		from tkMessageBox import showinfo, showerror
-		import ttk
+		from ttk import *
 	except:
 		#Python 3.x
 		from tkinter.filedialog import asksaveasfilename,askopenfilename
 		from tkinter.messagebox import showinfo, showerror
-		import tkinter.ttk as ttk
+		from tkinter.ttk import *
 	GUI_TK=True
 except:
 	GUI_TK=False
@@ -156,21 +157,10 @@ def local_ip():
 	ip = gethostbyname_ex(gethostname())[2][0]
 	ipn = struct.unpack(">I",inet_aton(ip))
 	return (inet_ntoa(struct.pack(">I",ipn[0]+10)),"255.255.255.0",inet_ntoa(struct.pack(">I",(ipn[0]&0xFFFFFF00)+1)))
-def sofia_hash(msg):
-	s = ""
-	md5 = hashlib.md5(msg.encode()).digest()
-	if isinstance(md5,str): md5 = [ord(i) for i in md5]
-	for n in range(8):
-		c = (md5[2*n]+md5[2*n+1])%62
-		if c > 9:
-			if c > 35:
-				c += 61
-			else:
-				c += 55
-		else:
-			c += 48
-		s += chr(c)
-	return s
+def sofia_hash(self, password):
+	md5 = hashlib.md5(bytes(password,"utf-8")).digest()
+	chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	return "".join([chars[sum(x)%62] for x in zip(md5[::2],md5[1::2])])
 
 def GetIP(s):
 	return inet_ntoa(struct.pack('I',int(s,16)))
@@ -408,6 +398,13 @@ def ConfigWans(data):
 			e = 1
 	client.close()
 	return answer
+def FlashXM(cmd):
+	cam = DVRIPCam(GetIP(devices[cmd[1]]['HostIP']),"admin",cmd[2])
+	if cam.login():
+		cmd[4](_("Auth success"))
+		cam.upgrade(cmd[3],0x4000,cmd[4])
+	else:
+		cmd[4](_("Auth failed"))
 
 def ProcessCMD(cmd):
 	global log,logLevel,devices,searchers,configure,flashers
@@ -472,10 +469,11 @@ def ProcessCMD(cmd):
 		else:
 			return "config [MAC] [IP] [MASK] [GATE] [Pasword]"
 	if cmd[0].lower() == "flash":
-		if len(cmd) > 2 and cmd[1] in devices.key(s) and devices[cmd[1]]['Brand'] in flashers.keys():
+		if len(cmd) > 3 and cmd[1] in devices.key(s) and devices[cmd[1]]['Brand'] in flashers.keys():
+			if len(cmd)==4: cmd[4]=tolog
 			return flashers[devices[cmd[1]]['Brand']](cmd)
 		else:
-			return "flash [MAC] [file]"
+			return "flash [MAC] [password] [file]"
 	if cmd[0].lower() == "loglevel":
 		if len(cmd) > 1:
 			logLevel = int(cmd[1])
@@ -495,17 +493,23 @@ class GUITk:
 		self.root=root
 		self.root.wm_title(_("Device Manager"))
 		self.root.tk.call('wm', 'iconphoto', root._w, PhotoImage(data=icon))
-		self.f = ttk.Frame(self.root)
+		self.f = Frame(self.root)
 		self.f.pack(fill=BOTH, expand=YES)
 
-		self.fr = ttk.Frame(self.f)
-		self.fr.grid(row=0, column=0, columnspan=3, sticky="nsew")
-		self.fr_tools = ttk.Frame(self.f)
-		self.fr_tools.grid(row=1, column=0, columnspan=3, sticky="ew")
-		self.fr_config = ttk.Frame(self.f)
-		self.fr_config.grid(row=0, column=5, rowspan=2, sticky="nsew")
+		self.f.columnconfigure(0, weight=1)
+		self.f.rowconfigure(0, weight=1)
 
-		self.table = ttk.Treeview(self.fr, show='headings', selectmode='browse', height=10)
+		self.fr = Frame(self.f)
+		self.fr.grid(row=0, column=0, columnspan=3, sticky="nsew")
+		self.fr_tools = Frame(self.f)
+		self.fr_tools.grid(row=1, column=0, columnspan=6, sticky="ew")
+		self.fr_config = Frame(self.f)
+		self.fr_config.grid(row=0, column=5, sticky="nsew")
+
+		self.fr.columnconfigure(0, weight=1)
+		self.fr.rowconfigure(0, weight=1)
+
+		self.table = Treeview(self.fr, show='headings', selectmode='browse', height=10)
 		self.table.grid(column=0, row=0, sticky="nsew")
 		self.table["columns"]=("ID","vendor","addr","port","name","mac","sn")
 		self.table["displaycolumns"]=("vendor","addr","port","name","mac","sn")
@@ -524,62 +528,63 @@ class GUITk:
 		self.table.column("mac", stretch=0, width=110)
 		self.table.column("sn", stretch=0, width=120)
 
-		self.scrollY = ttk.Scrollbar(self.fr, orient=VERTICAL)
+		self.scrollY = Scrollbar(self.fr, orient=VERTICAL)
 		self.scrollY.config(command=self.table.yview)
 		self.scrollY.grid(row=0, column=1, sticky="ns")
-		self.scrollX = ttk.Scrollbar(self.fr, orient=HORIZONTAL)
+		self.scrollX = Scrollbar(self.fr, orient=HORIZONTAL)
 		self.scrollX.config(command=self.table.xview)
 		self.scrollX.grid(row=1, column=0, sticky="ew")
 		self.table.config(yscrollcommand=self.scrollY.set,xscrollcommand=self.scrollX.set)
 
 		self.table.bind('<ButtonRelease>', self.select)
 
-		self.l0 = ttk.Label(self.fr_config, text=_("Name"))
+		self.l0 = Label(self.fr_config, text=_("Name"))
 		self.l0.grid(row=0, column=0,pady=3,padx=5,sticky=W+N)
-		self.name = ttk.Entry(self.fr_config, width=15, font="6")
+		self.name = Entry(self.fr_config, width=15, font="6")
 		self.name.grid(row=0, column=1,pady=3,padx=5,sticky=W+N)
-		self.l1 = ttk.Label(self.fr_config, text=_("IP Address"))
+		self.l1 = Label(self.fr_config, text=_("IP Address"))
 		self.l1.grid(row=1, column=0,pady=3,padx=5,sticky=W+N)
-		self.addr = ttk.Entry(self.fr_config, width=15, font="6")
+		self.addr = Entry(self.fr_config, width=15, font="6")
 		self.addr.grid(row=1, column=1,pady=3,padx=5,sticky=W+N)
-		self.l2 = ttk.Label(self.fr_config, text=_("Mask"))
+		self.l2 = Label(self.fr_config, text=_("Mask"))
 		self.l2.grid(row=2, column=0,pady=3,padx=5,sticky=W+N)
-		self.mask = ttk.Entry(self.fr_config, width=15, font="6")
+		self.mask = Entry(self.fr_config, width=15, font="6")
 		self.mask.grid(row=2, column=1,pady=3,padx=5,sticky=W+N)
-		self.l3 = ttk.Label(self.fr_config, text=_("Gateway"))
+		self.l3 = Label(self.fr_config, text=_("Gateway"))
 		self.l3.grid(row=3, column=0,pady=3,padx=5,sticky=W+N)
-		self.gate = ttk.Entry(self.fr_config, width=15, font="6")
+		self.gate = Entry(self.fr_config, width=15, font="6")
 		self.gate.grid(row=3, column=1,pady=3,padx=5,sticky=W+N)
-		self.aspc = ttk.Button(self.fr_config, text=_("As on PC"),command=self.addr_pc)
+		self.aspc = Button(self.fr_config, text=_("As on PC"),command=self.addr_pc)
 		self.aspc.grid(row=4, column=1,pady=3,padx=5,sticky="ew")
-		self.l4 = ttk.Label(self.fr_config, text=_("HTTP Port"))
+		self.l4 = Label(self.fr_config, text=_("HTTP Port"))
 		self.l4.grid(row=5, column=0,pady=3,padx=5,sticky=W+N)
-		self.http = ttk.Entry(self.fr_config, width=5, font="6")
+		self.http = Entry(self.fr_config, width=5, font="6")
 		self.http.grid(row=5, column=1,pady=3,padx=5,sticky=W+N)
-		self.l5 = ttk.Label(self.fr_config, text=_("TCP Port"))
+		self.l5 = Label(self.fr_config, text=_("TCP Port"))
 		self.l5.grid(row=6, column=0,pady=3,padx=5,sticky=W+N)
-		self.tcp = ttk.Entry(self.fr_config, width=5, font="6")
+		self.tcp = Entry(self.fr_config, width=5, font="6")
 		self.tcp.grid(row=6, column=1,pady=3,padx=5,sticky=W+N)
-		self.l6 = ttk.Label(self.fr_config, text=_("Password"))
+		self.l6 = Label(self.fr_config, text=_("Password"))
 		self.l6.grid(row=7, column=0,pady=3,padx=5,sticky=W+N)
-		self.passw = ttk.Entry(self.fr_config, width=15, font="6")
+		self.passw = Entry(self.fr_config, width=15, font="6")
 		self.passw.grid(row=7, column=1,pady=3,padx=5,sticky=W+N)
-		self.aply = ttk.Button(self.fr_config, text=_("Apply"),command=self.setconfig)
+		self.aply = Button(self.fr_config, text=_("Apply"),command=self.setconfig)
 		self.aply.grid(row=8, column=1,pady=3,padx=5,sticky="ew")
 		
-		self.l7 = ttk.Label(self.fr_tools, text=_("Vendor"))
+		self.l7 = Label(self.fr_tools, text=_("Vendor"))
 		self.l7.grid(row=0, column=0,pady=3,padx=5,sticky="wns")
-		self.ven = ttk.Combobox(self.fr_tools, width=10)
+		self.ven = Combobox(self.fr_tools, width=10)
 		self.ven.grid(row=0, column=1,padx=5,sticky="w")
 		self.ven['values'] = [_("All"), "XM", "Dahua", "Fros", "Wans", "Beward"]
 		self.ven.current(0)
-		self.search = ttk.Button(self.fr_tools, text=_("Search"),command=self.search)
+		self.search = Button(self.fr_tools, text=_("Search"),command=self.search)
 		self.search.grid(row=0, column=2,pady=5,padx=5,sticky=W+N)
-		self.reset = ttk.Button(self.fr_tools, text=_("Reset"),command=self.clear)
+		self.reset = Button(self.fr_tools, text=_("Reset"),command=self.clear)
 		self.reset.grid(row=0, column=3,pady=5,padx=5,sticky=W+N)
-		self.exp = ttk.Button(self.fr_tools, text=_("Export"),command=self.export)
+		self.exp = Button(self.fr_tools, text=_("Export"),command=self.export)
 		self.exp.grid(row=0, column=4,pady=5,padx=5,sticky=W+N)
-		self.fl = ttk.Button(self.fr_tools, text=_("Flash"),command=self.flash)
+		self.fl_state = StringVar(value=_("Flash"))
+		self.fl = Button(self.fr_tools, textvar=self.fl_state,command=self.flash)
 		self.fl.grid(row=0, column=5,pady=5,padx=5,sticky=W+N)
 
 	def addr_pc(self):
@@ -651,6 +656,7 @@ class GUITk:
 			ProcessCMD(["table"])
 		ProcessCMD(["loglevel", str(10)])
 	def flash(self):
+		self.fl_state.set("Processing...")
 		filename = askopenfilename(filetypes = ((_("Flash"), "*.bin")
 									,(_("All files"), "*.*") ))
 		if filename == "":
@@ -659,12 +665,12 @@ class GUITk:
 			_mac="all"
 		else:
 			_mac = self.table.item(self.table.selection()[0], option='values')[4]
-		result = ProcessCMD(["flash",_mac,filename])
+		result = ProcessCMD(["flash",_mac,self.passw.get(),filename,self.fl_state.set])
 		if hasattr(result, 'keys') and 'Ret' in result.keys() and result['Ret'] in CODES.keys(): showerror(_("Error"),CODES[result['Ret']])
 
 searchers = {"wans":SearchWans,"xm":SearchXM,"dahua":SearchDahua,"fros":SearchFros,"beward":SearchBeward,}
 configure = {"wans":ConfigWans,"xm":ConfigXM,"fros":ConfigFros}#,"dahua":ConfigDahua
-flashers  = {}#"xm":FlashXM,"dahua":FlashDahua,"fros":FlashFros
+flashers  = {"xm":FlashXM}#,"dahua":FlashDahua,"fros":FlashFros
 logLevel = 30
 if __name__ == "__main__":
 	if len(sys.argv) > 1:
@@ -677,8 +683,11 @@ if __name__ == "__main__":
 	if GUI_TK and "-n" not in sys.argv:
 		root = Tk()
 		app = GUITk(root)
-		#Style = ttk.Style()
-		#ttk.Style.theme_use(Style, "clam")
+		if "--theme" in sys.argv:#('winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative')
+			style = Style()
+			theme = [sys.argv.index("--theme")+1]
+			if theme in style.theme_names():
+				style.theme_use(theme)
 		root.mainloop()
 		sys.exit(1)
 	print(_("Type help or ? to display help(q or quit to exit)"))
