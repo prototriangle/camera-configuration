@@ -239,10 +239,8 @@ class DVRIPCam(object):
 	def get_upgrade_info(self):
 		return self.get(self.QCODES["OPSystemUpgrade"], "OPSystemUpgrade")
 
-	def upgrade(self, filename="", packetsize=0x8000, verbose=True):
-		def vprint(data):
-			if verbose:
-				print(data)
+	def upgrade(self, filename="", packetsize=0x8000, vprint=None):
+		if not vprint: vprint=lambda x: print(x)
 
 		data = self.set(0x5f0, "OPSystemUpgrade", { "Action" : "Start", "Type" : "System" })
 		if data["Ret"] not in self.OK_CODES:
