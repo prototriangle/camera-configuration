@@ -227,12 +227,12 @@ class DVRIPCam(object):
 
 		packet = self.socket.recv(0xffff)
 		if not packet:
-			return None
+			return None, buf
 		buf.extend(packet)
 		m = p.search(buf)
 		if m is None:
 			print(buf)
-			return None
+			return None, buf
 		buf = buf[m.span(1)[1]:]
 		return json.loads(m.group(1),encoding="utf-8"), buf
 
@@ -263,8 +263,7 @@ class DVRIPCam(object):
 				sentbytes+=len(bytes)
 
 				reply, rcvd = self.recv_json(rcvd)
-
-				if reply["Ret"] != 100:
+				if reply and reply["Ret"] != 100:
 					vprint("Upgrade failed")
 					return reply
 
@@ -278,9 +277,8 @@ class DVRIPCam(object):
 		vprint("Waiting for upgrade...")
 		while True:
 			reply, rcvd = self.recv_json(rcvd)
-			if reply:
-				if reply["Name"] == '' and reply["Ret"] == 100:
-					break
+			if reply and reply["Name"] == '' and reply["Ret"] == 100:
+				break
 
 		while True:
 			data, rcvd = self.recv_json(rcvd)
