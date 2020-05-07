@@ -49,8 +49,20 @@ cam.close()
 params = cam.get_info("Camera")
 print("Main params: ", params)
 
+# Get current encoding settings
+enc_info = cam.get_info("Simplify.Encode")
+# Returns data like this:
+# [{'ExtraFormat': {'AudioEnable': False, 'Video': {'BitRate': 552, 'BitRateControl': 'VBR', 'Compression': 'H.265', 'FPS': 20, 'GOP': 2, 'Quality': 3, 'Resolution': 'D1'}, 'VideoEnable': True}, 'MainFormat': {'AudioEnable': False, 'Video': {'BitRate': 2662, 'BitRateControl': 'VBR', 'Compression': 'H.265', 'FPS': 25, 'GOP': 2, 'Quality': 4, 'Resolution': '1080P'}, 'VideoEnable': True}}]
+
+# Change bitrate
+NewBitrate = 7000
+enc_info[0]['MainFormat']['Video']['BitRate'] = NewBitrate
+cam.set_info("Simplify.Encode", enc_info)
+
 # Get videochannel color parameters
 colors = cam.get_info("AVEnc.VideoColor.[0]")
+# Returns data like this:
+# [{'Enable': True, 'TimeSection': '0 00:00:00-24:00:00', 'VideoColorParam': {'Acutance': 3848, 'Brightness': 50, 'Contrast': 50, 'Gain': 0, 'Hue': 50, 'Saturation': 50, 'Whitebalance': 128}}, {'Enable': False, 'TimeSection': '0 00:00:00-24:00:00', 'VideoColorParam': {'Acutance': 3848, 'Brightness': 50, 'Contrast': 50, 'Gain': 0, 'Hue': 50, 'Saturation': 50, 'Whitebalance': 128}}]
 
 # Change picture title
 cam.channel_title(["Backyard"])
