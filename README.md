@@ -91,6 +91,17 @@ cam.channel_title(["Backyard"])
 
 # Change IR Cut
 cam.set_info("Camera.Param.[0]", { "IrcutSwap" : 0 })
+
+# Get network settings
+net = cam.get_info("NetWork.NetCommon")
+# Turn on adaptive IP mode
+cam.set_info("NetWork.IPAdaptive", { "IPAdaptive": True })
+# Set camera hostname
+cam.set_info("NetWork.NetCommon.HostName", "IVG-85HG50PYA-S")
+# Set DHCP mode (turn on in this case)
+dhcpst = cam.get_info("NetWork.NetDHCP")
+dhcpst[0]['Enable'] = True
+cam.set_info("NetWork.NetDHCP", dhcpst)
 ```
 
 
