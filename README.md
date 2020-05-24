@@ -86,9 +86,6 @@ colors = cam.get_info("AVEnc.VideoColor.[0]")
 # {'Enable': False, 'TimeSection': '0 00:00:00-24:00:00', 'VideoColorParam': {'Acutance': 3848,
 # 'Brightness': 50, 'Contrast': 50, 'Gain': 0, 'Hue': 50, 'Saturation': 50, 'Whitebalance': 128}}]
 
-# Change picture title
-cam.channel_title(["Backyard"])
-
 # Change IR Cut
 cam.set_info("Camera.Param.[0]", { "IrcutSwap" : 0 })
 
@@ -104,6 +101,43 @@ dhcpst[0]['Enable'] = True
 cam.set_info("NetWork.NetDHCP", dhcpst)
 ```
 
+## Set camera title
+
+```python
+# Simple way to change picture title
+cam.channel_title(["Backyard"])
+
+# Use unicode font from host computer to compose bitmap for title
+from PIL import Image, ImageDraw, ImageFont
+
+w_disp   = 128
+h_disp   =  64
+fontsize =  32
+text     =  "Туалет"
+
+imageRGB = Image.new('RGB', (w_disp, h_disp))
+draw  = ImageDraw.Draw(imageRGB)
+font  = ImageFont.truetype("/Library/Fonts/Arial Unicode.ttf", fontsize)
+w, h  = draw.textsize(text, font=font)
+draw.text(((w_disp - w)/2, (h_disp - h)/2), text, font=font)
+image1bit = imageRGB.convert("1")
+data = image1bit.tobytes()
+cam.channel_bitmap(w_disp, h_disp, data)
+
+# Use your own logo on picture
+img = Image.open('vixand.png')
+width, height = img.size
+data = img.convert("1").tobytes()
+cam.channel_bitmap(width, height, data)
+```
+
+```sh
+# Show current temperature, velocity, GPS coordinates, etc
+# Use the same method to draw text to bitmap and transmit it to camera
+# but consider place internal bitmap storage to RAM:
+mount -t tmpfs -o size=100k tmpfs /mnt/mtd/tmpfs
+ln -sf /mnt/mtd/tmpfs/0.dot /mnt/mtd/Config/Dot/0.dot
+```
 
 ## Upgrade camera firmware
 
