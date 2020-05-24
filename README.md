@@ -53,6 +53,7 @@ info["OSDInfo"][0]["OSDInfoWidget"]["FrontColor"]= '0xF0FFFF00'
 info["OSDInfo"][0]["OSDInfoWidget"]["RelativePos"] = [6144,6144,8192,8192] #OSD block position
 cam.set_info("fVideo.OSDInfo", info)
 ```
+![screenshot](2020-05-24_08-16-03.png)
 
 ## Camera modes/settings
 
