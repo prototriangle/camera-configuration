@@ -115,6 +115,16 @@ class DVRIPCam(object):
 	def channel_title(self,titles):
 		if isinstance(titles,str):titles=[titles]
 		self.send(self.QCODES["ChannelTitle"],{ 'ChannelTitle' : titles, "Name":"ChannelTitle","SessionID":"0x%08X"%self.session})
+
+	def channel_bitmap(self, width, height, bitmap):
+		header = struct.pack('HH12x', width, height)
+		self.socket.send(struct.pack('BB2xII2xHI',255, 0, self.session,
+							   self.packet_count, 0x041A, len(bitmap)+16)+header+bitmap)
+		reply, rcvd = self.recv_json()
+		if reply and reply["Ret"] != 100:
+			return False
+		return True
+
 	def reboot(self):
 		self.set(self.QCODES["OPMachine"],"OPMachine",{ "Action" : "Reboot" })
 		self.close()
