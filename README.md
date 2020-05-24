@@ -48,6 +48,8 @@ info = cam.get_info("fVideo.OSDInfo")
 info["OSDInfo"][0]["Info"] = ["Test:","Temp: 26 C","Hum: 21 %"] #3 lines text
 info["OSDInfo"][0]["OSDInfoWidget"]["EncodeBlend"] = True
 info["OSDInfo"][0]["OSDInfoWidget"]["PreviewBlend"] = True
+info["OSDInfo"][0]["OSDInfoWidget"]["BackColor"]= '0x80000000'
+info["OSDInfo"][0]["OSDInfoWidget"]["FrontColor"]= '0xF0FFFF00'
 info["OSDInfo"][0]["OSDInfoWidget"]["RelativePos"] = [6144,6144,8192,8192] #OSD block position
 cam.set_info("fVideo.OSDInfo", info)
 ```
