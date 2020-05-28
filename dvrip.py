@@ -29,10 +29,15 @@ class DVRIPCam(object):
         515: "Upgrade successful",
     }
     QCODES = {
-
         "AuthorityList":1470,
         "Users": 1472,
         "Groups": 1474,
+        "AddGroup": 1476,
+        "ModifyGroup": 1478,
+        "DelGroup": 1480,
+        "AddUser": 1482,
+        "ModifyUser": 1484,
+        "DelUser":1486,
         "ModifyPassword": 1488,
         "AlarmInfo": 1504,
         "AlarmSet": 1500,
@@ -90,15 +95,15 @@ class DVRIPCam(object):
         self.socket.close()
         self.socket = None
 
-    def send(self, msg, data):
+    def send(self, msg, data=None):
         if self.socket == None:
             return {"Ret": 101}
         # self.busy.wait()
         self.busy.acquire()
-        if hasattr(data, "__iter__"):
-            data = bytes(json.dumps(data, ensure_ascii=False), "utf-8")
-        self.socket.send(
-            struct.pack(
+        if data:
+            if hasattr(data, "__iter__"):
+                data = bytes(json.dumps(data, ensure_ascii=False), "utf-8")
+            payload = struct.pack(
                 "BB2xII2xHI",
                 255,
                 0,
@@ -106,9 +111,19 @@ class DVRIPCam(object):
                 self.packet_count,
                 msg,
                 len(data) + 2,
+            )+ data + b"\x0a\x00"
+        else:
+            payload = struct.pack(
+                "BB2xII2xHI",
+                255,
+                0,
+                self.session,
+                self.packet_count,
+                msg,
+                0,
             )
-            + data
-            + b"\x0a\x00"
+        self.socket.send(
+            payload,
         )
         reply = {"Ret": 101}
         try:
@@ -123,9 +138,9 @@ class DVRIPCam(object):
             sleep(0.1)  # Just for recive whole packet
             reply = self.socket.recv(len_data)
             self.packet_count += 1
-            reply = json.loads(reply.replace("\x0a","").replace("\x00",""), encoding="utf-8")
-        except:
-            pass
+            reply = json.loads(reply.replace(b"\x0a",b"").replace(b"\x00",b""), encoding="utf-8")
+        except Exception as e:
+            print(e)
         finally:
             self.busy.release()
         return reply
@@ -150,6 +165,128 @@ class DVRIPCam(object):
         self.session = int(data["SessionID"], 16)
         self.alive_time = data["AliveInterval"]
         self.keep_alive()
+        return data["Ret"] in self.OK_CODES
+
+    def getAuthorityList(self):
+        data = self.send(self.QCODES["AuthorityList"])
+        if data["Ret"] in self.OK_CODES:
+            return data["AuthorityList"]
+        else:
+            return []
+
+    def getGroups(self):
+        data = self.send(self.QCODES["Groups"])
+        if data["Ret"] in self.OK_CODES:
+            return data["Groups"]
+        else:
+            return []
+
+    def addGroup(self,name,comment="",auth=None):
+        data = self.set(
+            self.QCODES["AddGroup"],
+            "Group",
+            {
+                "AuthorityList": auth or self.getAuthorityList(),
+                "Memo": comment,
+                "Name": name,
+            },
+        )
+        return data["Ret"] in self.OK_CODES
+
+    def modifyGroup(self,name,newname=None,comment=None,auth=None):
+        g = [x for x in self.getGroups() if x["Name"]==name]
+        if g==[]:
+            print(f'Group "{group}" not found!')
+            return False
+        g = g[0]
+        data = self.send(
+            sel.QCODES["ModifyGroup"],
+            {
+                "Group" : {
+                    "AuthorityList" : auth or g["AuthorityList"],
+                    "Memo" : comment or g["Memo"],
+                    "Name" : newname or g["Name"],
+                },
+                "GroupName" : name,
+            },
+        )
+        return data["Ret"] in self.OK_CODES
+
+    def delGroup(self,name):
+        data = self.send(
+            self.QCODES["DelGroup"],
+            {
+                "Name" : name,
+                "SessionID" : "0x%08X" % self.session,
+            },
+        )
+        return data["Ret"] in self.OK_CODES
+
+    def getUsers(self):
+        data = self.send(self.QCODES["Users"])
+        if data["Ret"] in self.OK_CODES:
+            return data["Users"]
+        else:
+            return []
+
+    def addUser(self,name,password,comment="",group="user", auth=None,sharable=True):
+        g = [x for x in self.getGroups() if x["Name"]==group]
+        if g==[]:
+            print(f'Group "{group}" not found!')
+            return False
+        g = g[0]
+        data = self.set(
+            self.QCODES["AddUser"],
+            "User",
+            {
+                "AuthorityList" : auth or g["AuthorityList"],
+                "Group" : g["Name"],
+                "Memo" : comment,
+                "Name" : name,
+                "Password" : self.sofia_hash(password),
+                "Reserved" : Flse,
+                "Sharable" : sharable,
+            },
+        )
+        return data["Ret"] in self.OK_CODES
+
+    def modifyUser(self,name,newname=None,comment=None,group=None,auth=None,sharable=None):
+        u = [x for x in self.getUsers() if x["Name"]==name]
+        if u==[]:
+            print(f'User "{name}" not found!')
+            return False
+        u = u[0]
+        if group:
+            g = [x for x in self.getGroups() if x["Name"]==group]
+            if g==[]:
+                print(f'Group "{group}" not found!')
+                return False
+            u["AuthorityList"] = g[0]["AuthorityList"]
+        data = self.send(
+            self.QCODES["ModifyUser"],
+            { 
+                "User" : {
+                    "AuthorityList" : auth or u["AuthorityList"],
+                    "Group" : group or u["Group"],
+                    "Memo" : comment or u["Memo"],
+                    "Name" : newname or u["Name"],
+                    "Password" : "",
+                    "Reserved" : u["Reserved"], 
+                    "Sharable" : sharable or u["Sharable"],
+                },
+                "UserName" : name,
+            },
+        )
+        return data["Ret"] in self.OK_CODES
+
+    def delUser(self,name):
+        data = self.send(
+            self.QCODES["DelUser"],
+            {
+                "Name" : name,
+                "SessionID" : "0x%08X" % self.session,
+            },
+        )
         return data["Ret"] in self.OK_CODES
 
     def changePasswd(self,newpass="",oldpass=None,user=None):
