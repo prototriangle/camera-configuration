@@ -200,7 +200,7 @@ class DVRIPCam(object):
             return False
         g = g[0]
         data = self.send(
-            sel.QCODES["ModifyGroup"],
+            self.QCODES["ModifyGroup"],
             {
                 "Group" : {
                     "AuthorityList" : auth or g["AuthorityList"],
@@ -244,7 +244,7 @@ class DVRIPCam(object):
                 "Memo" : comment,
                 "Name" : name,
                 "Password" : self.sofia_hash(password),
-                "Reserved" : Flse,
+                "Reserved" : False,
                 "Sharable" : sharable,
             },
         )
