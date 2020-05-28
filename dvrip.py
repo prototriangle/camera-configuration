@@ -29,6 +29,11 @@ class DVRIPCam(object):
         515: "Upgrade successful",
     }
     QCODES = {
+
+        "AuthorityList":1470,
+        "Users": 1472,
+        "Groups": 1474,
+        "ModifyPassword": 1488,
         "AlarmInfo": 1504,
         "AlarmSet": 1500,
         "KeepAlive": 1006,
@@ -60,10 +65,10 @@ class DVRIPCam(object):
     }
     OK_CODES = [100, 515]
 
-    def __init__(self, ip, user="admin", password="", port=34567):
+    def __init__(self, ip, user="admin", password="", port=34567, hashPass=None):
         self.ip = ip
         self.user = user
-        self.password = password
+        self.password = hashPass or self.sofia_hash(password)
         self.port = port
         self.socket = None
         self.packet_count = 0
@@ -118,19 +123,19 @@ class DVRIPCam(object):
             sleep(0.1)  # Just for recive whole packet
             reply = self.socket.recv(len_data)
             self.packet_count += 1
-            reply = json.loads(reply[:-2], encoding="utf-8")
+            reply = json.loads(reply.replace("\x0a","").replace("\x00",""), encoding="utf-8")
         except:
             pass
         finally:
             self.busy.release()
         return reply
 
-    def sofia_hash(self, password):
+    def sofia_hash(self, password=""):
         md5 = hashlib.md5(bytes(password, "utf-8")).digest()
         chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
         return "".join([chars[sum(x) % 62] for x in zip(md5[::2], md5[1::2])])
 
-    def login(self):
+    def login(self, hashPass=None):
         if self.socket == None:
             self.connect()
         data = self.send(
@@ -138,13 +143,26 @@ class DVRIPCam(object):
             {
                 "EncryptType": "MD5",
                 "LoginType": "DVRIP-Web",
-                "PassWord": self.sofia_hash(self.password),
+                "PassWord": hashPass or self.password,
                 "UserName": self.user,
             },
         )
         self.session = int(data["SessionID"], 16)
         self.alive_time = data["AliveInterval"]
         self.keep_alive()
+        return data["Ret"] in self.OK_CODES
+
+    def changePasswd(self,newpass="",oldpass=None,user=None):
+        data = self.send(
+            self.QCODES["ModifyPassword"],
+            {
+                "EncryptType" : "MD5",
+                "NewPassWord" : self.sofia_hash(newpass),
+                "PassWord" : oldpass or self.password,
+                "SessionID" : "0x%08X" % self.session,
+                "UserName" : user or self.user
+            },
+        )
         return data["Ret"] in self.OK_CODES
 
     def channel_title(self, titles):
