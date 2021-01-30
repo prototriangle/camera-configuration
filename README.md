@@ -21,18 +21,17 @@ https://gist.github.com/ekwoodrich/a6d7b8db8f82adf107c3c366e61fd36f
 from dvrip import DVRIPCam
 from time import sleep
 
-host_ip = '192.168.0.100'
+host_ip = '192.168.1.10'
 
-cam = DVRIPCam(host_ip, "admin", "")
+cam = DVRIPCam(host_ip, user="admin", password="")
 if cam.login():
 	print("Success! Connected to " + host_ip)
 else:
 	print("Failure. Could not connect.")
 
-time = cam.get_time()
-print("Camera time:", time)
+print("Camera time:", cam.get_time())
 
-# Reboot test
+# Reboot camera
 cam.reboot()
 sleep(60) # wait while camera starts
 
@@ -40,6 +39,7 @@ sleep(60) # wait while camera starts
 cam.login()
 # Sync camera time with PC time
 cam.set_time()
+# Disconnect
 cam.close()
 ```
 ## OSD special text displaying
@@ -55,7 +55,261 @@ cam.set_info("fVideo.OSDInfo", info)
 ```
 ![screenshot](2020-05-24_08-16-03.png)
 
-## Camera modes/settings
+## Camera settings
+
+```python
+params = cam.get_general_info()
+```
+
+Returns general camera information (timezones, formats, auto reboot policy,
+security options):
+
+```json
+{
+    "AppBindFlag": {
+        "BeBinded": false
+    },
+    "AutoMaintain": {
+        "AutoDeleteFilesDays": 0,
+        "AutoRebootDay": "Tuesday",
+        "AutoRebootHour": 3
+    },
+    "DSTState": {
+        "InNormalState": true
+    },
+    "General": {
+        "AutoLogout": 0,
+        "FontSize": 24,
+        "IranCalendarEnable": 0,
+        "LocalNo": 0,
+        "MachineName": "LocalHost",
+        "OverWrite": "OverWrite",
+        "ScreenAutoShutdown": 10,
+        "ScreenSaveTime": 0,
+        "VideoOutPut": "Auto"
+    },
+    "Location": {
+        "DSTEnd": {
+            "Day": 1,
+            "Hour": 1,
+            "Minute": 1,
+            "Month": 10,
+            "Week": 0,
+            "Year": 2021
+        },
+        "DSTRule": "Off",
+        "DSTStart": {
+            "Day": 1,
+            "Hour": 1,
+            "Minute": 1,
+            "Month": 5,
+            "Week": 0,
+            "Year": 2021
+        },
+        "DateFormat": "YYMMDD",
+        "DateSeparator": "-",
+        "IranCalendar": 0,
+        "Language": "Russian",
+        "TimeFormat": "24",
+        "VideoFormat": "PAL",
+        "Week": null,
+        "WorkDay": 62
+    },
+    "OneKeyMaskVideo": null,
+    "PwdSafety": {
+        "PwdReset": [
+            {
+                "QuestionAnswer": "",
+                "QuestionIndex": 0
+            },
+            {
+                "QuestionAnswer": "",
+                "QuestionIndex": 0
+            },
+            {
+                "QuestionAnswer": "",
+                "QuestionIndex": 0
+            },
+            {
+                "QuestionAnswer": "",
+                "QuestionIndex": 0
+            }
+        ],
+        "SecurityEmail": "",
+        "TipPageHide": false
+    },
+    "ResumePtzState": null,
+    "TimingSleep": null
+}
+```
+
+```python
+params = cam.get_system_info()
+```
+
+Returns hardware specific settings, camera serial number, current software
+version and firmware type:
+
+```json
+{
+    "AlarmInChannel": 2,
+    "AlarmOutChannel": 1,
+    "AudioInChannel": 1,
+    "BuildTime": "2020-01-08 11:05:18",
+    "CombineSwitch": 0,
+    "DeviceModel": "HI3516EV300_85H50AI",
+    "DeviceRunTime": "0x0001f532",
+    "DigChannel": 0,
+    "EncryptVersion": "Unknown",
+    "ExtraChannel": 0,
+    "HardWare": "HI3516EV300_85H50AI",
+    "HardWareVersion": "Unknown",
+    "SerialNo": "a166379674a3b447",
+    "SoftWareVersion": "V5.00.R02.000529B2.10010.040600.0020000",
+    "TalkInChannel": 1,
+    "TalkOutChannel": 1,
+    "UpdataTime": "",
+    "UpdataType": "0x00000000",
+    "VideoInChannel": 1,
+    "VideoOutChannel": 1
+}
+```
+
+```python
+params = cam.get_system_capabilities()
+```
+
+Returns capabilities for the camera software (alarms and detection,
+communication protocols and hardware specific features):
+
+```json
+{
+    "AlarmFunction": {
+        "AlarmConfig": true,
+        "BlindDetect": true,
+        "HumanDection": true,
+        "HumanPedDetection": true,
+        "LossDetect": true,
+        "MotionDetect": true,
+        "NetAbort": true,
+        "NetAlarm": true,
+        "NetIpConflict": true,
+        "NewVideoAnalyze": false,
+        "PEAInHumanPed": true,
+        "StorageFailure": true,
+        "StorageLowSpace": true,
+        "StorageNotExist": true,
+        "VideoAnalyze": false
+    },
+    "CommFunction": {
+        "CommRS232": true,
+        "CommRS485": true
+    },
+    "EncodeFunction": {
+        "DoubleStream": true,
+        "SmartH264": true,
+        "SmartH264V2": false,
+        "SnapStream": true
+    },
+    "NetServerFunction": {
+        "IPAdaptive": true,
+        "Net3G": false,
+        "Net4GSignalLevel": false,
+        "NetAlarmCenter": true,
+        "NetDAS": false,
+        "NetDDNS": false,
+        "NetDHCP": true,
+        "NetDNS": true,
+        "NetEmail": true,
+        "NetFTP": true,
+        "NetIPFilter": true,
+        "NetMutlicast": false,
+        "NetNTP": true,
+        "NetNat": true,
+        "NetPMS": true,
+        "NetPMSV2": true,
+        "NetPPPoE": false,
+        "NetRTSP": true,
+        "NetSPVMN": false,
+        "NetUPNP": true,
+        "NetWifi": false,
+        "OnvifPwdCheckout": true,
+        "RTMP": false,
+        "WifiModeSwitch": false,
+        "WifiRouteSignalLevel": true
+    },
+    "OtherFunction": {
+        "NOHDDRECORD": false,
+        "NoSupportSafetyQuestion": false,
+        "NotSupportAutoAndIntelligent": false,
+        "SupportAdminContactInfo": true,
+        "SupportAlarmRemoteCall": false,
+        "SupportAlarmVoiceTipInterval": true,
+        "SupportAlarmVoiceTips": true,
+        "SupportAlarmVoiceTipsType": true,
+        "SupportAppBindFlag": true,
+        "SupportBT": true,
+        "SupportBallTelescopic": false,
+        "SupportBoxCameraBulb": false,
+        "SupportCamareStyle": true,
+        "SupportCameraWhiteLight": false,
+        "SupportCfgCloudupgrade": true,
+        "SupportChangeLanguageNoReboot": true,
+        "SupportCloseVoiceTip": false,
+        "SupportCloudUpgrade": true,
+        "SupportCommDataUpload": true,
+        "SupportCorridorMode": false,
+        "SupportCustomizeLpRect": false,
+        "SupportDNChangeByImage": false,
+        "SupportDimenCode": true,
+        "SupportDoubleLightBoxCamera": false,
+        "SupportDoubleLightBulb": false,
+        "SupportElectronicPTZ": false,
+        "SupportFTPTest": true,
+        "SupportFaceDetectV2": false,
+        "SupportFaceRecognition": false,
+        "SupportMailTest": true,
+        "SupportMusicBulb433Pair": false,
+        "SupportMusicLightBulb": false,
+        "SupportNetWorkMode": false,
+        "SupportOSDInfo": false,
+        "SupportOneKeyMaskVideo": false,
+        "SupportPCSetDoubleLight": true,
+        "SupportPTZDirectionControl": false,
+        "SupportPTZTour": false,
+        "SupportPWDSafety": true,
+        "SupportParkingGuide": false,
+        "SupportPtz360Spin": false,
+        "SupportRPSVideo": false,
+        "SupportSetBrightness": false,
+        "SupportSetDetectTrackWatchPoint": false,
+        "SupportSetHardwareAbility": false,
+        "SupportSetPTZPresetAttribute": false,
+        "SupportSetVolume": true,
+        "SupportShowH265X": true,
+        "SupportSnapCfg": false,
+        "SupportSnapV2Stream": true,
+        "SupportSnapshotConfigV2": false,
+        "SupportSoftPhotosensitive": true,
+        "SupportStatusLed": false,
+        "SupportTextPassword": true,
+        "SupportTimeZone": true,
+        "SupportTimingSleep": false,
+        "SupportWebRTCModule": false,
+        "SupportWriteLog": true,
+        "SuppportChangeOnvifPort": true
+    },
+    "PreviewFunction": {
+        "Talk": true,
+        "Tour": false
+    },
+    "TipShow": {
+        "NoBeepTipShow": true
+    }
+}
+```
+
+## Camera video settings/modes
 
 ```python
 params = cam.get_info("Camera")
@@ -101,6 +355,10 @@ colors = cam.get_info("AVEnc.VideoColor.[0]")
 # Change IR Cut
 cam.set_info("Camera.Param.[0]", { "IrcutSwap" : 0 })
 
+# Change WDR settings
+WDR_mode = True
+cam.set_info("Camera.ParamEx.[0]", { "BroadTrends" : { "AutoGain" : int(WDR_mode) } })
+
 # Get network settings
 net = cam.get_info("NetWork.NetCommon")
 # Turn on adaptive IP mode
@@ -128,6 +386,48 @@ if cam.delUser("admin"):
     print("You do it! How?")
 else:
     print("It system reserved user")
+```
+
+## Get JPEG snapshot
+
+```python
+with open("snap.jpg", "wb") as f:
+    f.write(cam.snapshot())
+```
+
+## Get video/audio bitstream
+
+Video-only writing to file (using simple lambda):
+
+```python
+with open("datastream.h265", "wb") as f:
+    cam.start_monitor(lambda frame, meta: f.write(frame))
+```
+
+Writing datastream with additional filtering (capture first 100 frames):
+
+```python
+class State:
+    def __init__(self):
+        self.counter = 0
+
+    def count(self):
+        return self.counter
+
+    def inc(self):
+        self.counter += 1
+
+with open("datastream.h265", "wb") as f:
+    state = State()
+    def receiver(frame, meta, state):
+        if 'frame' in meta:
+            f.write(frame)
+            state.inc()
+            print(state.count())
+            if state.count() == 100:
+                cam.stop_monitor()
+
+    cam.start_monitor(receiver, state)
 ```
 
 ## Set camera title

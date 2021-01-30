@@ -8,6 +8,9 @@ import threading
 from socket import *
 from datetime import *
 import re
+import time
+import logging
+import datetime
 
 
 class DVRIPCam(object):
@@ -41,21 +44,23 @@ class DVRIPCam(object):
         "ModifyPassword": 1488,
         "AlarmInfo": 1504,
         "AlarmSet": 1500,
-        "KeepAlive": 1006,
         "ChannelTitle": 1046,
+        "EncodeCapability": 1360,
+        "General": 1042,
+        "KeepAlive": 1006,
+        "OPMachine": 1450,
+        "OPMailTest": 1636,
+        "OPMonitor": 1413,
+        "OPNetKeyboard": 1550,
+        "OPPTZControl": 1400,
+        "OPSNAP": 1560,
+        "OPSendFile": 0x5F2,
+        "OPSystemUpgrade": 0x5F5,
+        "OPTalk": 1434,
         "OPTimeQuery": 1452,
         "OPTimeSetting": 1450,
-        "OPMailTest": 1636,
-        # { "Name" : "OPMailTest", "OPMailTest" : { "Enable" : true, "MailServer" : { "Address" : "0x00000000", "Anonymity" : false, "Name" : "Your SMTP Server", "Password" : "", "Port" : 25, "UserName" : "" }, "Recievers" : [ "", "none", "none", "none", "none" ], "Schedule" : [ "0 00:00:00-24:00:00", "0 00:00:00-24:00:00" ], "SendAddr" : "", "Title" : "Alarm Message", "UseSSL" : false }, "SessionID" : "0x1" }
-        "OPMachine": 1450,
-        "OPMonitor": 1413,
-        "OPTalk": 1434,
-        "OPPTZControl": 1400,
-        "OPNetKeyboard": 1550,
         "SystemFunction": 1360,
-        "EncodeCapability": 1360,
-        "OPSystemUpgrade": 0x5F5,
-        "OPSendFile": 0x5F2,
+        "SystemInfo": 1020,
     }
     KEY_CODES = {
         "M": "Menu",
@@ -71,6 +76,7 @@ class DVRIPCam(object):
     OK_CODES = [100, 515]
 
     def __init__(self, ip, user="admin", password="", port=34567, hashPass=None):
+        self.logger = logging.getLogger(__name__)
         self.ip = ip
         self.user = user
         self.password = hashPass or self.sofia_hash(password)
@@ -84,26 +90,53 @@ class DVRIPCam(object):
         self.alarm_func = None
         self.busy = threading.Condition()
 
-    def connect(self):
+    def connect(self, timeout=10):
         self.socket = socket(AF_INET, SOCK_STREAM)
         self.socket.connect((self.ip, self.port))
         # it's important to extend timeout for upgrade procedure
-        self.socket.settimeout(10)
+        self.timeout = timeout
+        self.socket.settimeout(timeout)
 
     def close(self):
         self.alive.cancel()
         self.socket.close()
         self.socket = None
 
-    def send(self, msg, data=None):
+    def receive_with_timeout(self, length):
+        received = 0
+        buf = bytearray()
+        start_time = time.time()
+
+        while True:
+            data = self.socket.recv(length - received)
+            buf.extend(data)
+            received += len(data)
+            if length == received:
+                break
+            elapsed_time = time.time() - start_time
+            if elapsed_time > self.timeout:
+                return None
+        return buf
+
+    def receive_json(self, length):
+        data = self.receive_with_timeout(length)
+        if data is None:
+            return {}
+
+        self.packet_count += 1
+        self.logger.debug("<= %s", data)
+        reply = json.loads(data[:-2])
+        return reply
+
+    def send(self, msg, data, wait_response=True):
         if self.socket == None:
             return {"Ret": 101}
         # self.busy.wait()
         self.busy.acquire()
-        if data:
-            if hasattr(data, "__iter__"):
-                data = bytes(json.dumps(data, ensure_ascii=False), "utf-8")
-            payload = struct.pack(
+        if hasattr(data, "__iter__"):
+            data = bytes(json.dumps(data, ensure_ascii=False), "utf-8")
+        pkt = (
+            struct.pack(
                 "BB2xII2xHI",
                 255,
                 0,
@@ -111,22 +144,14 @@ class DVRIPCam(object):
                 self.packet_count,
                 msg,
                 len(data) + 2,
-            )+ data + b"\x0a\x00"
-        else:
-            payload = struct.pack(
-                "BB2xII2xHI",
-                255,
-                0,
-                self.session,
-                self.packet_count,
-                msg,
-                0,
             )
-        self.socket.send(
-            payload,
+            + data
+            + b"\x0a\x00"
         )
-        reply = {"Ret": 101}
-        try:
+        self.logger.debug("=> %s", pkt)
+        self.socket.send(pkt)
+        if wait_response:
+            reply = {"Ret": 101}
             (
                 head,
                 version,
@@ -135,15 +160,9 @@ class DVRIPCam(object):
                 msgid,
                 len_data,
             ) = struct.unpack("BB2xII2xHI", self.socket.recv(20))
-            sleep(0.1)  # Just for recive whole packet
-            reply = self.socket.recv(len_data)
-            self.packet_count += 1
-            reply = json.loads(reply.replace(b"\x0a",b"").replace(b"\x00",b""), encoding="utf-8")
-        except Exception as e:
-            print(e)
-        finally:
+            reply = self.receive_json(len_data)
             self.busy.release()
-        return reply
+            return reply
 
     def sofia_hash(self, password=""):
         md5 = hashlib.md5(bytes(password, "utf-8")).digest()
@@ -338,9 +357,6 @@ class DVRIPCam(object):
         self.set(self.QCODES["OPMachine"], "OPMachine", {"Action": "Reboot"})
         self.close()
 
-    def pretty_print(self, data):
-        print(json.dumps(data, indent=4, sort_keys=True))
-
     def setAlarm(self, func):
         self.alarm_func = func
 
@@ -354,7 +370,7 @@ class DVRIPCam(object):
             args=[self.busy],
         )
         self.alarm.start()
-        return self.get(self.QCODES["AlarmSet"], "")
+        return self.get_command("", self.QCODES["AlarmSet"])
 
     def alarm_thread(self, event):
         while True:
@@ -371,7 +387,7 @@ class DVRIPCam(object):
                 sleep(0.1)  # Just for recive whole packet
                 reply = self.socket.recv(len_data)
                 self.packet_count += 1
-                reply = json.loads(reply[:-2], encoding="utf8")
+                reply = json.loads(reply[:-2])
                 if msgid == self.QCODES["AlarmInfo"] and self.session == session:
                     if self.alarm_func != None:
                         self.alarm_func(reply[reply["Name"]], sequence_number)
@@ -457,15 +473,21 @@ class DVRIPCam(object):
     def set_info(self, command, data):
         return self.set(1040, command, data)
 
-    def set(self, code, command, data):
+    def set_command(self, command, data, code=None):
+        if not code:
+            code = self.QCODES[command]
+
         return self.send(
             code, {"Name": command, "SessionID": "0x%08X" % self.session, command: data}
         )
 
     def get_info(self, command):
-        return self.get(1042, command)
+        return self.get_command(command, 1042)
 
-    def get(self, code, command):
+    def get_command(self, command, code=None):
+        if not code:
+            code = self.QCODES[command]
+
         data = self.send(code, {"Name": command, "SessionID": "0x%08X" % self.session})
         if data["Ret"] in self.OK_CODES and command in data:
             return data[command]
@@ -473,54 +495,44 @@ class DVRIPCam(object):
             return data
 
     def get_time(self):
-        return datetime.strptime(
-            self.get(self.QCODES["OPTimeQuery"], "OPTimeQuery"), self.DATE_FORMAT
-        )
+        return datetime.strptime(self.get_command("OPTimeQuery"), self.DATE_FORMAT)
 
     def set_time(self, time=None):
         if time == None:
             time = datetime.now()
-        return self.set(
-            self.QCODES["OPTimeSetting"],
-            "OPTimeSetting",
-            time.strftime(self.DATE_FORMAT),
-        )
+        return self.set_command("OPTimeSetting", time.strftime(self.DATE_FORMAT),)
 
     def get_system_info(self):
-        data = self.get(1042, "General")
-        self.pretty_print(data)
+        return self.get_command("SystemInfo")
+
+    def get_general_info(self):
+        return self.get_command("General")
 
     def get_encode_capabilities(self):
-        data = self.get(self.QCODES["EncodeCapability"], "EncodeCapability")
-        self.pretty_print(data)
+        return self.get_command("EncodeCapability")
 
     def get_system_capabilities(self):
-        data = self.get(self.QCODES["SystemFunction"], "SystemFunction")
-        self.pretty_print(data)
+        return self.get_command("SystemFunction")
 
-    def get_camera_info(self, default=False):
+    def get_camera_info(self, default_config=False):
         """Request data for 'Camera' from  the target DVRIP device."""
-        if default:
+        if default_config:
             code = 1044
         else:
             code = 1042
-        data = self.get_info(code, "Camera")
-        self.pretty_print(data)
+        return self.get_info(code, "Camera")
 
-    def get_encode_info(self, default=False):
+    def get_encode_info(self, default_config=False):
         """Request data for 'Simplify.Encode' from the target DVRIP device.
 
-			Arguments:
-			default -- returns the default values for the type if True
-		"""
-
-        if default:
+            Arguments:
+            default_config -- returns the default values for the type if True
+        """
+        if default_config:
             code = 1044
         else:
             code = 1042
-
-        data = self.get_info(code, "Simplify.Encode")
-        self.pretty_print(data)
+        return self.get_info(code, "Simplify.Encode")
 
     def recv_json(self, buf=bytearray()):
         p = re.compile(b".*({.*})")
@@ -534,16 +546,18 @@ class DVRIPCam(object):
             print(buf)
             return None, buf
         buf = buf[m.span(1)[1] :]
-        return json.loads(m.group(1), encoding="utf-8"), buf
+        return json.loads(m.group(1)), buf
 
     def get_upgrade_info(self):
-        return self.get(self.QCODES["OPSystemUpgrade"], "OPSystemUpgrade")
+        return self.get_command("OPSystemUpgrade")
 
     def upgrade(self, filename="", packetsize=0x8000, vprint=None):
         if not vprint:
             vprint = lambda x: print(x)
 
-        data = self.set(0x5F0, "OPSystemUpgrade", {"Action": "Start", "Type": "System"})
+        data = self.set_command(
+            "OPSystemUpgrade", {"Action": "Start", "Type": "System"}, 0x5F0
+        )
         if data["Ret"] not in self.OK_CODES:
             return data
 
@@ -591,3 +605,136 @@ class DVRIPCam(object):
                 self.socket.close()
                 return data
             vprint(f"Upgraded {data['Ret']}%")
+
+    def reassemble_bin_payload(self, metadata={}):
+        def internal_to_type(data_type, value):
+            if data_type == 0x1FC or data_type == 0x1FD:
+                if value == 1:
+                    return "mpeg4"
+                elif value == 2:
+                    return "h264"
+                elif value == 3:
+                    return "h265"
+            elif data_type == 0x1F9:
+                if value == 1 or value == 6:
+                    return "info"
+            elif data_type == 0x1FA:
+                if value == 0xE:
+                    return "g711a"
+            elif data_type == 0x1FE and value == 0:
+                return "jpeg"
+            return None
+
+        def internal_to_datetime(value):
+            print(value)
+            second = value & 0x3f
+            minute = (value & 0xfc0) >> 6
+            hour = (value & 0x1f000) >> 12
+            day = (value & 0x3e0000) >> 17
+            month = (value & 0x3c00000) >> 22
+            year = ((value & 0xfc000000) >> 26) + 2000
+            return datetime.datetime(year, month, day, hour, minute, second)
+
+        length = 0
+        buf = bytearray()
+        start_time = time.time()
+
+        while True:
+            (
+                head,
+                version,
+                session,
+                sequence_number,
+                total,
+                cur,
+                msgid,
+                len_data,
+            ) = struct.unpack("BB2xIIBBHI", self.socket.recv(20))
+            print(head, version, session, sequence_number, total, cur, msgid, len_data)
+            packet = self.receive_with_timeout(len_data)
+            frame_len = 0
+            if length == 0:
+                media = None
+                frame_len = 8
+                (data_type,) = struct.unpack(">I", packet[:4])
+                if data_type == 0x1FC or data_type == 0x1FE:
+                    frame_len = 16
+                    (
+                        media,
+                        metadata["fps"],
+                        w,
+                        h,
+                        dt,
+                        length,
+                    ) = struct.unpack("BBBBII", packet[4:frame_len])
+                    metadata["width"] = w * 8
+                    metadata["height"] = h * 8
+                    metadata["datetime"] = internal_to_datetime(dt)
+                    if data_type == 0x1FC:
+                        metadata["frame"] = "I"
+                elif data_type == 0x1FD:
+                    (length,) = struct.unpack("I", packet[4:frame_len])
+                    metadata["frame"] = "P"
+                elif data_type == 0x1FA:
+                    (media, samp_rate, length) = struct.unpack(
+                        "BBH", packet[4:frame_len]
+                    )
+                elif data_type == 0x1F9:
+                    (media, n, length) = struct.unpack("BBH", packet[4:frame_len])
+                # special case of JPEG shapshots
+                elif data_type == 0xFFD8FFE0:
+                    return packet
+                else:
+                    raise ValueError(data_type)
+                if media is not None:
+                    metadata["type"] = internal_to_type(data_type, media)
+            buf.extend(packet[frame_len:])
+            length -= len(packet) - frame_len
+            if length == 0:
+                return buf
+            elapsed_time = time.time() - start_time
+            if elapsed_time > self.timeout:
+                return None
+
+    def snapshot(self, channel=0):
+        command = "OPSNAP"
+        self.send(
+            self.QCODES[command],
+            {
+                "Name": command,
+                "SessionID": "0x%08X" % self.session,
+                command: {"Channel": channel},
+            },
+            wait_response=False,
+        )
+        packet = self.reassemble_bin_payload()
+        return packet
+
+    def start_monitor(self, frame_callback, user={}, stream="Main"):
+        params = {
+            "Channel": 0,
+            "CombinMode": "NONE",
+            "StreamType": stream,
+            "TransMode": "TCP",
+        }
+        data = self.set_command("OPMonitor", {"Action": "Claim", "Parameter": params})
+        if data["Ret"] not in self.OK_CODES:
+            return data
+
+        self.send(
+            1410,
+            {
+                "Name": "OPMonitor",
+                "SessionID": "0x%08X" % self.session,
+                "OPMonitor": {"Action": "Start", "Parameter": params},
+            },
+            wait_response=False,
+        )
+        self.monitoring = True
+        while self.monitoring:
+            meta = {}
+            frame = self.reassemble_bin_payload(meta)
+            frame_callback(frame, meta, user)
+
+    def stop_monitor(self):
+        self.monitoring = False
