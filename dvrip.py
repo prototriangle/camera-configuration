@@ -201,13 +201,15 @@ class DVRIPCam(object):
 
     def addGroup(self,name,comment="",auth=None):
         data = self.set_command(
-            self.QCODES["AddGroup"],
-            "Group",
+            "AddGroup",
             {
-                "AuthorityList": auth or self.getAuthorityList(),
-                "Memo": comment,
-                "Name": name,
-            },
+                "Group" :
+                {
+                    "AuthorityList": auth or self.getAuthorityList(),
+                    "Memo": comment,
+                    "Name": name,
+                },
+            }
         )
         return data["Ret"] in self.OK_CODES
 
@@ -254,17 +256,18 @@ class DVRIPCam(object):
             return False
         g = g[0]
         data = self.set_command(
-            self.QCODES["AddUser"],
-            "User",
-            {
-                "AuthorityList" : auth or g["AuthorityList"],
-                "Group" : g["Name"],
-                "Memo" : comment,
-                "Name" : name,
-                "Password" : self.sofia_hash(password),
-                "Reserved" : False,
-                "Sharable" : sharable,
-            },
+            "AddUser", {
+                "User":
+                {
+                    "AuthorityList" : auth or g["AuthorityList"],
+                    "Group" : g["Name"],
+                    "Memo" : comment,
+                    "Name" : name,
+                    "Password" : self.sofia_hash(password),
+                    "Reserved" : False,
+                    "Sharable" : sharable,
+                },
+            }
         )
         return data["Ret"] in self.OK_CODES
 
@@ -353,7 +356,7 @@ class DVRIPCam(object):
         return True
 
     def reboot(self):
-        self.set_command(self.QCODES["OPMachine"], "OPMachine", {"Action": "Reboot"})
+        self.set_command("OPMachine", {"Action": "Reboot"})
         self.close()
 
     def setAlarm(self, func):
@@ -407,14 +410,12 @@ class DVRIPCam(object):
 
     def keyDown(self, key):
         self.set_command(
-            self.QCODES["OPNetKeyboard"],
             "OPNetKeyboard",
             {"Status": "KeyDown", "Value": key},
         )
 
     def keyUp(self, key):
         self.set_command(
-            self.QCODES["OPNetKeyboard"],
             "OPNetKeyboard",
             {"Status": "KeyUp", "Value": key},
         )
@@ -464,17 +465,12 @@ class DVRIPCam(object):
             "Tour": 1 if "Tour" in cmd else 0,
         }
         return self.set_command(
-            self.QCODES["OPPTZControl"],
             "OPPTZControl",
             {"Command": cmd, "Parameter": ptz_param},
         )
 
     def set_info(self, command, data):
-        return self.set_command(1040, command, data)
-
-    def set_command(self, command, data, code=None):
-        if not code:
-            code = self.QCODES[command]
+        return self.set_command(command, data, 1040)
 
     def set_command(self, command, data, code=None):
         if not code:
@@ -500,9 +496,9 @@ class DVRIPCam(object):
         return datetime.strptime(self.get_command("OPTimeQuery"), self.DATE_FORMAT)
 
     def set_time(self, time=None):
-        if time == None:
+        if time is None:
             time = datetime.now()
-        return self.set_command("OPTimeSetting", time.strftime(self.DATE_FORMAT),)
+        return self.set_command("OPTimeSetting", time.strftime(self.DATE_FORMAT))
 
     def get_system_info(self):
         return self.get_command("SystemInfo")
@@ -634,7 +630,7 @@ class DVRIPCam(object):
             day = (value & 0x3e0000) >> 17
             month = (value & 0x3c00000) >> 22
             year = ((value & 0xfc000000) >> 26) + 2000
-            return datetime.datetime(year, month, day, hour, minute, second)
+            return datetime(year, month, day, hour, minute, second)
 
         length = 0
         buf = bytearray()
