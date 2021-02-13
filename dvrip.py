@@ -31,7 +31,7 @@ class DVRIPCam(object):
         515: "Upgrade successful",
     }
     QCODES = {
-        "AuthorityList":1470,
+        "AuthorityList": 1470,
         "Users": 1472,
         "Groups": 1474,
         "AddGroup": 1476,
@@ -39,7 +39,7 @@ class DVRIPCam(object):
         "DelGroup": 1480,
         "AddUser": 1482,
         "ModifyUser": 1484,
-        "DelUser":1486,
+        "DelUser": 1486,
         "ModifyPassword": 1488,
         "AlarmInfo": 1504,
         "AlarmSet": 1500,
@@ -74,12 +74,13 @@ class DVRIPCam(object):
     }
     OK_CODES = [100, 515]
 
-    def __init__(self, ip, user="admin", password="", port=34567, hashPass=None):
+    def __init__(self, ip, **kwargs):
         self.logger = logging.getLogger(__name__)
         self.ip = ip
-        self.user = user
-        self.password = hashPass or self.sofia_hash(password)
-        self.port = port
+        self.user = kwargs.get("user", "admin")
+        hashPass = kwargs.get("hashPass")
+        self.password = hashPass or self.sofia_hash(kwargs.get("password", ""))
+        self.port = kwargs.get("port", 34567)
         self.socket = None
         self.packet_count = 0
         self.session = 0
@@ -199,46 +200,42 @@ class DVRIPCam(object):
         else:
             return []
 
-    def addGroup(self,name,comment="",auth=None):
+    def addGroup(self, name, comment="", auth=None):
         data = self.set_command(
             "AddGroup",
             {
-                "Group" :
-                {
+                "Group": {
                     "AuthorityList": auth or self.getAuthorityList(),
                     "Memo": comment,
                     "Name": name,
                 },
-            }
+            },
         )
         return data["Ret"] in self.OK_CODES
 
-    def modifyGroup(self,name,newname=None,comment=None,auth=None):
-        g = [x for x in self.getGroups() if x["Name"]==name]
-        if g==[]:
+    def modifyGroup(self, name, newname=None, comment=None, auth=None):
+        g = [x for x in self.getGroups() if x["Name"] == name]
+        if g == []:
             print(f'Group "{group}" not found!')
             return False
         g = g[0]
         data = self.send(
             self.QCODES["ModifyGroup"],
             {
-                "Group" : {
-                    "AuthorityList" : auth or g["AuthorityList"],
-                    "Memo" : comment or g["Memo"],
-                    "Name" : newname or g["Name"],
+                "Group": {
+                    "AuthorityList": auth or g["AuthorityList"],
+                    "Memo": comment or g["Memo"],
+                    "Name": newname or g["Name"],
                 },
-                "GroupName" : name,
+                "GroupName": name,
             },
         )
         return data["Ret"] in self.OK_CODES
 
-    def delGroup(self,name):
+    def delGroup(self, name):
         data = self.send(
             self.QCODES["DelGroup"],
-            {
-                "Name" : name,
-                "SessionID" : "0x%08X" % self.session,
-            },
+            {"Name": name, "SessionID": "0x%08X" % self.session,},
         )
         return data["Ret"] in self.OK_CODES
 
@@ -249,76 +246,77 @@ class DVRIPCam(object):
         else:
             return []
 
-    def addUser(self,name,password,comment="",group="user", auth=None,sharable=True):
-        g = [x for x in self.getGroups() if x["Name"]==group]
-        if g==[]:
+    def addUser(
+        self, name, password, comment="", group="user", auth=None, sharable=True
+    ):
+        g = [x for x in self.getGroups() if x["Name"] == group]
+        if g == []:
             print(f'Group "{group}" not found!')
             return False
         g = g[0]
         data = self.set_command(
-            "AddUser", {
-                "User":
-                {
-                    "AuthorityList" : auth or g["AuthorityList"],
-                    "Group" : g["Name"],
-                    "Memo" : comment,
-                    "Name" : name,
-                    "Password" : self.sofia_hash(password),
-                    "Reserved" : False,
-                    "Sharable" : sharable,
+            "AddUser",
+            {
+                "User": {
+                    "AuthorityList": auth or g["AuthorityList"],
+                    "Group": g["Name"],
+                    "Memo": comment,
+                    "Name": name,
+                    "Password": self.sofia_hash(password),
+                    "Reserved": False,
+                    "Sharable": sharable,
                 },
-            }
+            },
         )
         return data["Ret"] in self.OK_CODES
 
-    def modifyUser(self,name,newname=None,comment=None,group=None,auth=None,sharable=None):
-        u = [x for x in self.getUsers() if x["Name"]==name]
-        if u==[]:
+    def modifyUser(
+        self, name, newname=None, comment=None, group=None, auth=None, sharable=None
+    ):
+        u = [x for x in self.getUsers() if x["Name"] == name]
+        if u == []:
             print(f'User "{name}" not found!')
             return False
         u = u[0]
         if group:
-            g = [x for x in self.getGroups() if x["Name"]==group]
-            if g==[]:
+            g = [x for x in self.getGroups() if x["Name"] == group]
+            if g == []:
                 print(f'Group "{group}" not found!')
                 return False
             u["AuthorityList"] = g[0]["AuthorityList"]
         data = self.send(
             self.QCODES["ModifyUser"],
-            { 
-                "User" : {
-                    "AuthorityList" : auth or u["AuthorityList"],
-                    "Group" : group or u["Group"],
-                    "Memo" : comment or u["Memo"],
-                    "Name" : newname or u["Name"],
-                    "Password" : "",
-                    "Reserved" : u["Reserved"], 
-                    "Sharable" : sharable or u["Sharable"],
+            {
+                "User": {
+                    "AuthorityList": auth or u["AuthorityList"],
+                    "Group": group or u["Group"],
+                    "Memo": comment or u["Memo"],
+                    "Name": newname or u["Name"],
+                    "Password": "",
+                    "Reserved": u["Reserved"],
+                    "Sharable": sharable or u["Sharable"],
                 },
-                "UserName" : name,
+                "UserName": name,
             },
         )
         return data["Ret"] in self.OK_CODES
 
-    def delUser(self,name):
+    def delUser(self, name):
         data = self.send(
             self.QCODES["DelUser"],
-            {
-                "Name" : name,
-                "SessionID" : "0x%08X" % self.session,
-            },
+            {"Name": name, "SessionID": "0x%08X" % self.session,},
         )
         return data["Ret"] in self.OK_CODES
 
-    def changePasswd(self,newpass="",oldpass=None,user=None):
+    def changePasswd(self, newpass="", oldpass=None, user=None):
         data = self.send(
             self.QCODES["ModifyPassword"],
             {
-                "EncryptType" : "MD5",
-                "NewPassWord" : self.sofia_hash(newpass),
-                "PassWord" : oldpass or self.password,
-                "SessionID" : "0x%08X" % self.session,
-                "UserName" : user or self.user
+                "EncryptType": "MD5",
+                "NewPassWord": self.sofia_hash(newpass),
+                "PassWord": oldpass or self.password,
+                "SessionID": "0x%08X" % self.session,
+                "UserName": user or self.user,
             },
         )
         return data["Ret"] in self.OK_CODES
@@ -410,14 +408,12 @@ class DVRIPCam(object):
 
     def keyDown(self, key):
         self.set_command(
-            "OPNetKeyboard",
-            {"Status": "KeyDown", "Value": key},
+            "OPNetKeyboard", {"Status": "KeyDown", "Value": key},
         )
 
     def keyUp(self, key):
         self.set_command(
-            "OPNetKeyboard",
-            {"Status": "KeyUp", "Value": key},
+            "OPNetKeyboard", {"Status": "KeyUp", "Value": key},
         )
 
     def keyPress(self, key):
@@ -465,8 +461,7 @@ class DVRIPCam(object):
             "Tour": 1 if "Tour" in cmd else 0,
         }
         return self.set_command(
-            "OPPTZControl",
-            {"Command": cmd, "Parameter": ptz_param},
+            "OPPTZControl", {"Command": cmd, "Parameter": ptz_param},
         )
 
     def set_info(self, command, data):
@@ -624,12 +619,12 @@ class DVRIPCam(object):
             return None
 
         def internal_to_datetime(value):
-            second = value & 0x3f
-            minute = (value & 0xfc0) >> 6
-            hour = (value & 0x1f000) >> 12
-            day = (value & 0x3e0000) >> 17
-            month = (value & 0x3c00000) >> 22
-            year = ((value & 0xfc000000) >> 26) + 2000
+            second = value & 0x3F
+            minute = (value & 0xFC0) >> 6
+            hour = (value & 0x1F000) >> 12
+            day = (value & 0x3E0000) >> 17
+            month = (value & 0x3C00000) >> 22
+            year = ((value & 0xFC000000) >> 26) + 2000
             return datetime(year, month, day, hour, minute, second)
 
         length = 0
@@ -655,14 +650,9 @@ class DVRIPCam(object):
                 (data_type,) = struct.unpack(">I", packet[:4])
                 if data_type == 0x1FC or data_type == 0x1FE:
                     frame_len = 16
-                    (
-                        media,
-                        metadata["fps"],
-                        w,
-                        h,
-                        dt,
-                        length,
-                    ) = struct.unpack("BBBBII", packet[4:frame_len])
+                    (media, metadata["fps"], w, h, dt, length,) = struct.unpack(
+                        "BBBBII", packet[4:frame_len]
+                    )
                     metadata["width"] = w * 8
                     metadata["height"] = h * 8
                     metadata["datetime"] = internal_to_datetime(dt)

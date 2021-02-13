@@ -23,7 +23,7 @@ from time import sleep
 
 host_ip = '192.168.1.10'
 
-cam = DVRIPCam(host_ip, user="admin", password="")
+cam = DVRIPCam(host_ip, user='admin', password='')
 if cam.login():
 	print("Success! Connected to " + host_ip)
 else:
