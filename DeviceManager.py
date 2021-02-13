@@ -4,6 +4,7 @@ import os, sys, struct, json
 from locale import getdefaultlocale
 from subprocess import check_output
 from socket import *
+import platform
 from datetime import *
 import hashlib, base64
 from dvrip import DVRIPCam
@@ -16,6 +17,7 @@ try:
     from tkinter.filedialog import asksaveasfilename, askopenfilename
     from tkinter.messagebox import showinfo, showerror
     from tkinter.ttk import *
+
     GUI_TK = True
 except:
     GUI_TK = False
@@ -147,8 +149,21 @@ def tolog(s):
         logfile.close()
 
 
+def get_nat_ip():
+    s = socket(AF_INET, SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(("10.255.255.255", 1))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = "127.0.0.1"
+    finally:
+        s.close()
+    return IP
+
+
 def local_ip():
-    ip = gethostbyname_ex(gethostname())[2][0]
+    ip = get_nat_ip()
     ipn = struct.unpack(">I", inet_aton(ip))
     return (
         inet_ntoa(struct.pack(">I", ipn[0] + 10)),
@@ -179,9 +194,12 @@ def GetAllAddr():
             if "IPv4" in x
         ]
     else:
+        iptool = ["ip", "address"]
+        if platform.system() == "Darwin":
+            iptool = ["ifconfig"]
         return [
             x.split("/")[0].strip().split(" ")[1]
-            for x in str(check_output(["ip", "address"]), "ascii").split("\n")
+            for x in str(check_output(iptool), "ascii").split("\n")
             if "inet " in x and "127.0." not in x
         ]
 
@@ -877,10 +895,30 @@ class GUITk:
 
         self.table.bind("<ButtonRelease>", self.select)
         self.popup_menu = Menu(self.table, tearoff=0)
-        self.popup_menu.add_command(label="Copy SN",
-                                    command=lambda:(self.root.clipboard_clear() or self.root.clipboard_append(self.table.item(self.table.selection()[0], option="values")[6])) if len(self.table.selection())>0 else None)
-        self.popup_menu.add_command(label="Copy line",
-                                    command=lambda:(self.root.clipboard_clear() or self.root.clipboard_append("\t".join(self.table.item(self.table.selection()[0], option="values")[1:]))) if len(self.table.selection())>0 else None)
+        self.popup_menu.add_command(
+            label="Copy SN",
+            command=lambda: (
+                self.root.clipboard_clear()
+                or self.root.clipboard_append(
+                    self.table.item(self.table.selection()[0], option="values")[6]
+                )
+            )
+            if len(self.table.selection()) > 0
+            else None,
+        )
+        self.popup_menu.add_command(
+            label="Copy line",
+            command=lambda: (
+                self.root.clipboard_clear()
+                or self.root.clipboard_append(
+                    "\t".join(
+                        self.table.item(self.table.selection()[0], option="values")[1:]
+                    )
+                )
+            )
+            if len(self.table.selection()) > 0
+            else None,
+        )
         self.table.bind("<Button-3>", self.popup)
 
         self.l0 = Label(self.fr_config, text=_("Name"))
