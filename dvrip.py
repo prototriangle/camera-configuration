@@ -1,13 +1,12 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-import os, sys, struct, json
+import os
+import struct
+import json
 from time import sleep
 import hashlib
 import threading
-from socket import *
+from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
 from datetime import *
-import re
+from re import compile
 import time
 import logging
 
@@ -82,8 +81,8 @@ class DVRIPCam(object):
         self.logger = logging.getLogger(__name__)
         self.ip = ip
         self.user = kwargs.get("user", "admin")
-        hashPass = kwargs.get("hashPass")
-        self.password = hashPass or self.sofia_hash(kwargs.get("password", ""))
+        hash_pass = kwargs.get("hash_pass")
+        self.hash_pass = hash_pass or self.sofia_hash(kwargs.get("password", ""))
         self.proto = kwargs.get("proto", "tcp")
         self.port = kwargs.get("port", self.PORTS.get(self.proto))
         self.socket = None
@@ -102,7 +101,7 @@ class DVRIPCam(object):
         elif self.proto == "udp":
             self.socket = socket(AF_INET, SOCK_DGRAM)
         else:
-            raise (f"Unsupported protocol {self.proto}")
+            raise f"Unsupported protocol {self.proto}"
         # it's important to extend timeout for upgrade procedure
         self.timeout = timeout
         self.socket.settimeout(timeout)
@@ -145,7 +144,7 @@ class DVRIPCam(object):
         return reply
 
     def send(self, msg, data, wait_response=True):
-        if self.socket == None:
+        if self.socket is None:
             return {"Ret": 101}
         # self.busy.wait()
         self.busy.acquire()
@@ -185,15 +184,15 @@ class DVRIPCam(object):
         chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
         return "".join([chars[sum(x) % 62] for x in zip(md5[::2], md5[1::2])])
 
-    def login(self, hashPass=None):
-        if self.socket == None:
+    def login(self):
+        if self.socket is None:
             self.connect()
         data = self.send(
             1000,
             {
                 "EncryptType": "MD5",
                 "LoginType": "DVRIP-Web",
-                "PassWord": hashPass or self.password,
+                "PassWord": self.hash_pass,
                 "UserName": self.user,
             },
         )
@@ -232,7 +231,7 @@ class DVRIPCam(object):
     def modifyGroup(self, name, newname=None, comment=None, auth=None):
         g = [x for x in self.getGroups() if x["Name"] == name]
         if g == []:
-            print(f'Group "{group}" not found!')
+            print(f'Group "{name}" not found!')
             return False
         g = g[0]
         data = self.send(
@@ -400,18 +399,18 @@ class DVRIPCam(object):
                     msgid,
                     len_data,
                 ) = struct.unpack("BB2xII2xHI", self.socket_recv(20))
-                sleep(0.1)  # Just for recive whole packet
+                sleep(0.1)  # Just for receive whole packet
                 reply = self.socket_recv(len_data)
                 self.packet_count += 1
                 reply = json.loads(reply[:-2])
                 if msgid == self.QCODES["AlarmInfo"] and self.session == session:
-                    if self.alarm_func != None:
+                    if self.alarm_func is not None:
                         self.alarm_func(reply[reply["Name"]], sequence_number)
             except:
                 pass
             finally:
                 event.release()
-            if self.socket == None:
+            if self.socket is None:
                 break
 
     def keep_alive(self):
@@ -544,7 +543,7 @@ class DVRIPCam(object):
         return self.get_info(code, "Simplify.Encode")
 
     def recv_json(self, buf=bytearray()):
-        p = re.compile(b".*({.*})")
+        p = compile(b".*({.*})")
 
         packet = self.socket_recv(0xFFFF)
         if not packet:

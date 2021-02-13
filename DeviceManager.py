@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 
 import os, sys, struct, json
 from locale import getdefaultlocale
@@ -9,31 +8,14 @@ from datetime import *
 import hashlib, base64
 from dvrip import DVRIPCam
 
-# Python 2/3 capability test
-try:
-    _ = str(b"ef", "ascii")
-    _str = lambda x, y: str(x, y)
-    _bytes = lambda x, y: bytes(x, y)
-    _input = lambda x="": input(x)
-except:
-    _str = lambda x, y: x.decode(y)
-    _bytes = lambda x, y: x.encode(y)
-    _input = lambda x="": raw_input(x)
-
 try:
     try:
         from tkinter import *
     except:
         from Tkinter import *
-    try:
-        from tkFileDialog import asksaveasfilename, askopenfilename
-        from tkMessageBox import showinfo, showerror
-        from ttk import *
-    except:
-        # Python 3.x
-        from tkinter.filedialog import asksaveasfilename, askopenfilename
-        from tkinter.messagebox import showinfo, showerror
-        from tkinter.ttk import *
+    from tkinter.filedialog import asksaveasfilename, askopenfilename
+    from tkinter.messagebox import showinfo, showerror
+    from tkinter.ttk import *
     GUI_TK = True
 except:
     GUI_TK = False
@@ -161,7 +143,7 @@ def tolog(s):
     print(s)
     if logLevel >= 20:
         logfile = open(log, "wb")
-        logfile.write(_bytes(s, "utf-8"))
+        logfile.write(bytes(s, "utf-8"))
         logfile.close()
 
 
@@ -193,13 +175,13 @@ def GetAllAddr():
     if os.name == "nt":
         return [
             x.split(":")[1].strip()
-            for x in _str(check_output(["ipconfig"]), "866").split("\r\n")
+            for x in str(check_output(["ipconfig"]), "866").split("\r\n")
             if "IPv4" in x
         ]
     else:
         return [
             x.split("/")[0].strip().split(" ")[1]
-            for x in _str(check_output(["ip", "address"]), "ascii").split("\n")
+            for x in str(check_output(["ip", "address"]), "ascii").split("\n")
             if "inet " in x and "127.0." not in x
         ]
 
@@ -1126,7 +1108,7 @@ if __name__ == "__main__":
         sys.exit(1)
     print(_("Type help or ? to display help(q or quit to exit)"))
     while True:
-        data = _input("> ").split(";")
+        data = input("> ").split(";")
         for cmd in data:
             result = ProcessCMD(cmd.split(" "))
             if hasattr(result, "keys") and "Ret" in result.keys():
