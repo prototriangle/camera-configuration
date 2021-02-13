@@ -73,6 +73,10 @@ class DVRIPCam(object):
         "D": "Down",
     }
     OK_CODES = [100, 515]
+    PORTS = {
+        "tcp": 34567,
+        "udp": 34568,
+    }
 
     def __init__(self, ip, **kwargs):
         self.logger = logging.getLogger(__name__)
@@ -80,7 +84,8 @@ class DVRIPCam(object):
         self.user = kwargs.get("user", "admin")
         hashPass = kwargs.get("hashPass")
         self.password = hashPass or self.sofia_hash(kwargs.get("password", ""))
-        self.port = kwargs.get("port", 34567)
+        self.proto = kwargs.get("proto", "tcp")
+        self.port = kwargs.get("port", self.PORTS.get(self.proto))
         self.socket = None
         self.packet_count = 0
         self.session = 0
@@ -91,8 +96,13 @@ class DVRIPCam(object):
         self.busy = threading.Condition()
 
     def connect(self, timeout=10):
-        self.socket = socket(AF_INET, SOCK_STREAM)
-        self.socket.connect((self.ip, self.port))
+        if self.proto == "tcp":
+            self.socket = socket(AF_INET, SOCK_STREAM)
+            self.socket.connect((self.ip, self.port))
+        elif self.proto == "udp":
+            self.socket = socket(AF_INET, SOCK_DGRAM)
+        else:
+            raise (f"Unsupported protocol {self.proto}")
         # it's important to extend timeout for upgrade procedure
         self.timeout = timeout
         self.socket.settimeout(timeout)
@@ -102,13 +112,19 @@ class DVRIPCam(object):
         self.socket.close()
         self.socket = None
 
+    def socket_send(self, bytes):
+        return self.socket.sendall(bytes)
+
+    def socket_recv(self, bufsize):
+        return self.socket.recv(bufsize)
+
     def receive_with_timeout(self, length):
         received = 0
         buf = bytearray()
         start_time = time.time()
 
         while True:
-            data = self.socket.recv(length - received)
+            data = self.socket_recv(length - received)
             buf.extend(data)
             received += len(data)
             if length == received:
@@ -149,7 +165,7 @@ class DVRIPCam(object):
             + b"\x0a\x00"
         )
         self.logger.debug("=> %s", pkt)
-        self.socket.send(pkt)
+        self.socket_send(pkt)
         if wait_response:
             reply = {"Ret": 101}
             (
@@ -159,7 +175,7 @@ class DVRIPCam(object):
                 sequence_number,
                 msgid,
                 len_data,
-            ) = struct.unpack("BB2xII2xHI", self.socket.recv(20))
+            ) = struct.unpack("BB2xII2xHI", self.socket_recv(20))
             reply = self.receive_json(len_data)
             self.busy.release()
             return reply
@@ -335,7 +351,7 @@ class DVRIPCam(object):
 
     def channel_bitmap(self, width, height, bitmap):
         header = struct.pack("HH12x", width, height)
-        self.socket.send(
+        self.socket_send(
             struct.pack(
                 "BB2xII2xHI",
                 255,
@@ -383,9 +399,9 @@ class DVRIPCam(object):
                     sequence_number,
                     msgid,
                     len_data,
-                ) = struct.unpack("BB2xII2xHI", self.socket.recv(20))
+                ) = struct.unpack("BB2xII2xHI", self.socket_recv(20))
                 sleep(0.1)  # Just for recive whole packet
-                reply = self.socket.recv(len_data)
+                reply = self.socket_recv(len_data)
                 self.packet_count += 1
                 reply = json.loads(reply[:-2])
                 if msgid == self.QCODES["AlarmInfo"] and self.session == session:
@@ -530,7 +546,7 @@ class DVRIPCam(object):
     def recv_json(self, buf=bytearray()):
         p = re.compile(b".*({.*})")
 
-        packet = self.socket.recv(0xFFFF)
+        packet = self.socket_recv(0xFFFF)
         if not packet:
             return None, buf
         buf.extend(packet)
@@ -567,7 +583,7 @@ class DVRIPCam(object):
                 header = struct.pack(
                     "BB2xII2xHI", 255, 0, self.session, blocknum, 0x5F2, len(bytes)
                 )
-                self.socket.send(header + bytes)
+                self.socket_send(header + bytes)
                 blocknum += 1
                 sentbytes += len(bytes)
 
@@ -581,7 +597,7 @@ class DVRIPCam(object):
         vprint("End of file")
 
         pkt = struct.pack("BB2xIIxBHI", 255, 0, self.session, blocknum, 1, 0x05F2, 0)
-        self.socket.send(pkt)
+        self.socket_send(pkt)
         vprint("Waiting for upgrade...")
         while True:
             reply, rcvd = self.recv_json(rcvd)
@@ -641,7 +657,7 @@ class DVRIPCam(object):
                 cur,
                 msgid,
                 len_data,
-            ) = struct.unpack("BB2xIIBBHI", self.socket.recv(20))
+            ) = struct.unpack("BB2xIIBBHI", self.socket_recv(20))
             packet = self.receive_with_timeout(len_data)
             frame_len = 0
             if length == 0:
