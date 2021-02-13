@@ -96,12 +96,17 @@ class DVRIPCam(object):
 
     def connect(self, timeout=10):
         if self.proto == "tcp":
+            self.socket_send = self.tcp_socket_send
+            self.socket_recv = self.tcp_socket_recv
             self.socket = socket(AF_INET, SOCK_STREAM)
             self.socket.connect((self.ip, self.port))
         elif self.proto == "udp":
+            self.socket_send = self.udp_socket_send
+            self.socket_recv = self.udp_socket_recv
             self.socket = socket(AF_INET, SOCK_DGRAM)
         else:
             raise f"Unsupported protocol {self.proto}"
+
         # it's important to extend timeout for upgrade procedure
         self.timeout = timeout
         self.socket.settimeout(timeout)
@@ -111,10 +116,17 @@ class DVRIPCam(object):
         self.socket.close()
         self.socket = None
 
-    def socket_send(self, bytes):
+    def udp_socket_send(self, bytes):
+        return self.socket.sendto(bytes, (self.ip, self.port))
+
+    def udp_socket_recv(self, bytes):
+        data, _ = self.socket.recvfrom(bytes)
+        return data
+
+    def tcp_socket_send(self, bytes):
         return self.socket.sendall(bytes)
 
-    def socket_recv(self, bufsize):
+    def tcp_socket_recv(self, bufsize):
         return self.socket.recv(bufsize)
 
     def receive_with_timeout(self, length):
