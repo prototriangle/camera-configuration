@@ -659,6 +659,7 @@ class DVRIPCam(object):
         start_time = time.time()
 
         while True:
+            data = self.receive_with_timeout(20)
             (
                 head,
                 version,
@@ -668,7 +669,7 @@ class DVRIPCam(object):
                 cur,
                 msgid,
                 len_data,
-            ) = struct.unpack("BB2xIIBBHI", self.socket_recv(20))
+            ) = struct.unpack("BB2xIIBBHI", data)
             packet = self.receive_with_timeout(len_data)
             frame_len = 0
             if length == 0:

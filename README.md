@@ -401,7 +401,7 @@ Video-only writing to file (using simple lambda):
 
 ```python
 with open("datastream.h265", "wb") as f:
-    cam.start_monitor(lambda frame, meta: f.write(frame))
+    cam.start_monitor(lambda frame, meta, user: f.write(frame))
 ```
 
 Writing datastream with additional filtering (capture first 100 frames):
