@@ -206,7 +206,7 @@ def GetAllAddr():
 
 def SearchXM(devices, address=""):
     server = socket(AF_INET, SOCK_DGRAM)
-    server.bind((address, 34569))
+    server.bind(("", 34569))
     server.settimeout(1)
     server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     server.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
@@ -214,22 +214,18 @@ def SearchXM(devices, address=""):
         struct.pack("BBHIIHHI", 255, 0, 0, 0, 0, 0, 1530, 0), ("255.255.255.255", 34569)
     )
     while True:
-        try:
-            data = server.recvfrom(1024)
-            head, ver, typ, session, packet, info, msg, leng = struct.unpack(
-                "BBHIIHHI", data[0][:20]
-            )
-            if (msg == 1531) and leng > 0:
-                answer = json.loads(
-                    data[0][20 : 20 + leng].replace(b"\x00", b""), encoding="utf8"
-                )
-                if answer["NetWork.NetCommon"]["MAC"] not in devices.keys():
-                    devices[answer["NetWork.NetCommon"]["MAC"]] = answer[
-                        "NetWork.NetCommon"
-                    ]
-                    devices[answer["NetWork.NetCommon"]["MAC"]][u"Brand"] = u"xm"
-        except:
-            break
+        data = server.recvfrom(1024)
+        head, ver, typ, session, packet, info, msg, leng = struct.unpack(
+            "BBHIIHHI", data[0][:20]
+        )
+        if (msg == 1531) and leng > 0:
+            answer = json.loads(
+                data[0][20 : 20 + leng].replace(b"\x00", b""))
+            if answer["NetWork.NetCommon"]["MAC"] not in devices.keys():
+                devices[answer["NetWork.NetCommon"]["MAC"]] = answer[
+                    "NetWork.NetCommon"
+                ]
+                devices[answer["NetWork.NetCommon"]["MAC"]][u"Brand"] = u"xm"
     server.close()
     return devices
 
@@ -430,7 +426,7 @@ def SearchBeward(devices, address=""):
             tolog(repr((base64.b64decode(data[0]), data[1])) + "\n")
             # head,ver,typ,session,packet,info,msg,leng = struct.unpack('BBHIIHHI',data[0][:20])
             # if (msg == 1531) and leng > 0:
-            # 	answer = json.loads(data[0][20:20+leng].replace(b'\x00',b''),encoding="utf8")
+            # 	answer = json.loads(data[0][20:20+leng].replace(b'\x00',b''))
             # 	if answer['NetWork.NetCommon']['MAC'] not in devices.keys():
             # 		devices[answer['NetWork.NetCommon']['MAC']] = answer['NetWork.NetCommon']
             # 		devices[answer['NetWork.NetCommon']['MAC']][u'Brand'] = u"xm"
@@ -498,8 +494,7 @@ def ConfigXM(data):
             )
             if (msg == 1533) and leng > 0:
                 answer = json.loads(
-                    data[0][20 : 20 + leng].replace(b"\x00", b""), encoding="utf8"
-                )
+                    data[0][20 : 20 + leng].replace(b"\x00", b""))
                 break
         except:
             e += 1
