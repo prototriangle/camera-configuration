@@ -208,6 +208,8 @@ class DVRIPCam(object):
                 "UserName": self.user,
             },
         )
+        if data["Ret"] not in self.OK_CODES:
+            return False
         self.session = int(data["SessionID"], 16)
         self.alive_time = data["AliveInterval"]
         self.keep_alive()
