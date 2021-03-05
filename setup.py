@@ -32,12 +32,13 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3 :: Only',
     ],
 
-    py_modules=["dvrip","DeviceManager"],
+    py_modules=["dvrip", "DeviceManager"],
 
-    python_requires='>=3.6, <3.9',
+    python_requires='>=3.6, <=3.9',
 
     project_urls={
         'Bug Reports': 'https://github.com/NeiroNx/python-dvr/issues',
