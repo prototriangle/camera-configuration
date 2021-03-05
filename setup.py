@@ -38,7 +38,7 @@ setup(
 
     py_modules=["dvrip", "DeviceManager"],
 
-    python_requires='>=3.6, <=3.9',
+    python_requires='>=3.6',
 
     project_urls={
         'Bug Reports': 'https://github.com/NeiroNx/python-dvr/issues',
