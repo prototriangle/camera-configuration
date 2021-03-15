@@ -157,7 +157,7 @@ class DVRIPCam(object):
         reply = json.loads(data[:-2])
         return reply
 
-    def send(self, msg, data, wait_response=True):
+    def send(self, msg, data={}, wait_response=True):
         if self.socket is None:
             return {"Ret": 101}
         # self.busy.wait()

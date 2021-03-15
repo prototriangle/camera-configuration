@@ -204,9 +204,9 @@ def GetAllAddr():
         ]
 
 
-def SearchXM(devices, address=""):
+def SearchXM(devices):
     server = socket(AF_INET, SOCK_DGRAM)
-    server.bind((address, 34569))
+    server.bind(("", 34569))
     server.settimeout(1)
     server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     server.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
@@ -214,29 +214,25 @@ def SearchXM(devices, address=""):
         struct.pack("BBHIIHHI", 255, 0, 0, 0, 0, 0, 1530, 0), ("255.255.255.255", 34569)
     )
     while True:
-        try:
-            data = server.recvfrom(1024)
-            head, ver, typ, session, packet, info, msg, leng = struct.unpack(
-                "BBHIIHHI", data[0][:20]
-            )
-            if (msg == 1531) and leng > 0:
-                answer = json.loads(
-                    data[0][20 : 20 + leng].replace(b"\x00", b""), encoding="utf8"
-                )
-                if answer["NetWork.NetCommon"]["MAC"] not in devices.keys():
-                    devices[answer["NetWork.NetCommon"]["MAC"]] = answer[
-                        "NetWork.NetCommon"
-                    ]
-                    devices[answer["NetWork.NetCommon"]["MAC"]][u"Brand"] = u"xm"
-        except:
-            break
+        data = server.recvfrom(1024)
+        head, ver, typ, session, packet, info, msg, leng = struct.unpack(
+            "BBHIIHHI", data[0][:20]
+        )
+        if (msg == 1531) and leng > 0:
+            answer = json.loads(
+                data[0][20 : 20 + leng].replace(b"\x00", b""))
+            if answer["NetWork.NetCommon"]["MAC"] not in devices.keys():
+                devices[answer["NetWork.NetCommon"]["MAC"]] = answer[
+                    "NetWork.NetCommon"
+                ]
+                devices[answer["NetWork.NetCommon"]["MAC"]][u"Brand"] = u"xm"
     server.close()
     return devices
 
 
-def SearchDahua(devices, address=""):
+def SearchDahua(devices):
     server = socket(AF_INET, SOCK_DGRAM)
-    server.bind((address, 5050))
+    server.bind(("", 5050))
     server.settimeout(1)
     server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     server.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
@@ -273,9 +269,9 @@ def SearchDahua(devices, address=""):
     return devices
 
 
-def SearchFros(devices, address=""):
+def SearchFros(devices):
     server = socket(AF_INET, SOCK_DGRAM)
-    server.bind((address, 10000))
+    server.bind(("", 10000))
     server.settimeout(1)
     server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     server.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
@@ -336,9 +332,9 @@ def SearchFros(devices, address=""):
     return devices
 
 
-def SearchWans(devices, address=""):
+def SearchWans(devices):
     server = socket(AF_INET, SOCK_DGRAM)
-    server.bind((address, 8600))
+    server.bind(("", 8600))
     server.settimeout(1.3)
     server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     server.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
@@ -417,9 +413,9 @@ def SearchWans(devices, address=""):
 
 
 # b'gE\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-def SearchBeward(devices, address=""):
+def SearchBeward(devices):
     server = socket(AF_INET, SOCK_DGRAM)
-    server.bind((address, 6667))
+    server.bind(("", 6667))
     server.settimeout(1)
     server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     server.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
@@ -430,7 +426,7 @@ def SearchBeward(devices, address=""):
             tolog(repr((base64.b64decode(data[0]), data[1])) + "\n")
             # head,ver,typ,session,packet,info,msg,leng = struct.unpack('BBHIIHHI',data[0][:20])
             # if (msg == 1531) and leng > 0:
-            # 	answer = json.loads(data[0][20:20+leng].replace(b'\x00',b''),encoding="utf8")
+            # 	answer = json.loads(data[0][20:20+leng].replace(b'\x00',b''))
             # 	if answer['NetWork.NetCommon']['MAC'] not in devices.keys():
             # 		devices[answer['NetWork.NetCommon']['MAC']] = answer['NetWork.NetCommon']
             # 		devices[answer['NetWork.NetCommon']['MAC']][u'Brand'] = u"xm"
@@ -498,8 +494,7 @@ def ConfigXM(data):
             )
             if (msg == 1533) and leng > 0:
                 answer = json.loads(
-                    data[0][20 : 20 + leng].replace(b"\x00", b""), encoding="utf8"
-                )
+                    data[0][20 : 20 + leng].replace(b"\x00", b""))
                 break
         except:
             e += 1
@@ -690,26 +685,25 @@ def ProcessCMD(cmd):
     if cmd[0].lower() in ["help", "?", "/?", "-h", "--help"]:
         return help
     if cmd[0].lower() == "search":
-        for addr in GetAllAddr():
-            tolog("%s %s %s" % (_("Search"), addr, _("IP Address")))
-            if len(cmd) > 1 and cmd[1].lower() in searchers.keys():
+        tolog("%s" % (_("Search")))
+        if len(cmd) > 1 and cmd[1].lower() in searchers.keys():
+            try:
+                devices = searchers[cmd[1].lower()](devices)
+            except Exception as error:
+                print(" ".join([str(x) for x in list(error.args)]))
+            print(_("Searching %s, found %d devices") % (cmd[1], len(devices)))
+        else:
+            for s in searchers:
+                tolog(_("Search") + " %s\r" % s)
                 try:
-                    devices = searchers[cmd[1].lower()](devices, addr)
+                    devices = searchers[s](devices)
                 except Exception as error:
                     print(" ".join([str(x) for x in list(error.args)]))
-                print(_("Searching %s, found %d devices") % (cmd[1], len(devices)))
-            else:
-                for s in searchers:
-                    tolog(_("Search") + " %s\r" % s)
-                    try:
-                        devices = searchers[s](devices, addr)
-                    except Exception as error:
-                        print(" ".join([str(x) for x in list(error.args)]))
-                tolog(_("Found %d devices") % len(devices))
-            if len(devices) > 0:
-                if logLevel > 0:
-                    cmd[0] = "table"
-                    print("")
+            tolog(_("Found %d devices") % len(devices))
+        if len(devices) > 0:
+            if logLevel > 0:
+                cmd[0] = "table"
+                print("")
     if cmd[0].lower() == "table":
         logs = (
             _("Vendor")
