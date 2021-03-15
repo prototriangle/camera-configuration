@@ -57,6 +57,8 @@ class DVRIPCam(object):
         "OPTalk": 1434,
         "OPTimeQuery": 1452,
         "OPTimeSetting": 1450,
+        "NetWork.NetCommon": 1042,
+        "OPNetAlarm": 1506,
         "SystemFunction": 1360,
         "SystemInfo": 1020,
     }
@@ -427,6 +429,11 @@ class DVRIPCam(object):
             if self.socket is None:
                 break
 
+    def set_remote_alarm(self, state):
+        self.set_command(
+            "OPNetAlarm", {"Event": 0, "State": state},
+        )
+
     def keep_alive(self):
         self.send(
             self.QCODES["KeepAlive"],
@@ -523,6 +530,9 @@ class DVRIPCam(object):
         if time is None:
             time = datetime.now()
         return self.set_command("OPTimeSetting", time.strftime(self.DATE_FORMAT))
+
+    def get_netcommon(self):
+        return self.get_command("NetWork.NetCommon")
 
     def get_system_info(self):
         return self.get_command("SystemInfo")
